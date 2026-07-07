@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+.pb-safe {
+  padding-bottom: var(--safe-bottom);
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif;
+  background: #FFFFFF;
+  color: #1A1A1A;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  .btn-black {
+    @apply bg-black text-white rounded-xl font-medium transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-outline {
+    @apply bg-white text-black border border-black rounded-xl font-medium transition-all duration-200 active:scale-95;
+  }
+  .btn-danger-zone {
+    @apply bg-gray-100 text-danger rounded-xl font-medium w-full py-3.5 transition-all active:bg-gray-200;
+  }
+  .card {
+    @apply bg-white rounded-2xl;
+  }
+  .divider {
+    @apply h-px bg-divider w-full;
+  }
+  .text-hairline {
+    @apply border-b border-divider;
+  }
+  .tag-chip {
+    @apply inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-text-secondary text-xs font-medium;
+  }
+  .tag-chip-active {
+    @apply bg-black text-white;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .gold-gradient {
+    background: linear-gradient(135deg, #D4AF37 0%, #F5E6A3 50%, #D4AF37 100%);
+  }
+  .vip-card-bg {
+    background: linear-gradient(135deg, #1A1A1A 0%, #333333 50%, #000000 100%);
+  }
+  .shimmer-bg {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+  }
+}
+
+input, textarea, button {
+  font-family: inherit;
+  outline: none;
+}
+
+textarea {
+  resize: none;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+}

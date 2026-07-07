@@ -1,0 +1,1 @@
+-keep class com.wenshu.app.data.model.** { *; }

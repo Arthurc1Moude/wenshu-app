@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/tv_hot"
+    android:layout_width="wrap_content"
+    android:layout_height="32dp"
+    android:gravity="center"
+    android:background="@drawable/bg_tag"
+    android:textColor="@color/text_primary"
+    android:textSize="@dimen/text_body"
+    android:paddingStart="@dimen/spacing_md"
+    android:paddingEnd="@dimen/spacing_md"
+    android:layout_marginEnd="@dimen/spacing_sm"
+    android:layout_marginBottom="@dimen/spacing_sm"
+    android:text="热搜" />
