@@ -89,6 +89,24 @@ interface ApiService {
     @GET("users/{id}/follow-status")
     suspend fun getFollowStatus(@Path("id") userId: String): FollowStatusResponse
 
+    @POST("users/{id}/block")
+    suspend fun blockUser(@Path("id") userId: String): SimpleResponse
+
+    @POST("users/{id}/unblock")
+    suspend fun unblockUser(@Path("id") userId: String): SimpleResponse
+
+    @GET("users/{id}/block-status")
+    suspend fun getBlockStatus(@Path("id") userId: String): Map<String, Boolean>
+
+    @POST("auth/send-code")
+    suspend fun sendVerificationCode(@Body request: SendCodeRequest): SendCodeResponse
+
+    @POST("users/me/bind-phone")
+    suspend fun bindPhone(@Body request: BindPhoneRequest): SimpleResponse
+
+    @POST("auth/change-password")
+    suspend fun changePassword(@Body request: ChangePasswordRequest): SimpleResponse
+
     @GET("health")
     suspend fun healthCheck(): Map<String, Any>
 }

@@ -32,6 +32,7 @@ export async function initTables() {
         id TEXT PRIMARY KEY,
         username TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
+        phone TEXT UNIQUE,
         avatar TEXT,
         cover TEXT,
         bio TEXT DEFAULT '',
@@ -204,6 +205,18 @@ export async function initTables() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS verification_codes (
+        id TEXT PRIMARY KEY,
+        phone TEXT NOT NULL,
+        code TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        expires_at BIGINT NOT NULL,
+        used BOOLEAN DEFAULT false,
+        created_at BIGINT
+      )
+    `);
+
     await client.query(`CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id)`);
@@ -217,6 +230,8 @@ export async function initTables() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_blacklists_user ON blacklists(user_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_blacklists_blocked ON blacklists(blocked_user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_verification_phone ON verification_codes(phone)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_verification_expires ON verification_codes(expires_at)`);
 
     console.log('✅ PostgreSQL tables initialized');
   } finally {
@@ -230,6 +245,7 @@ function rowToUser(row) {
     id: row.id,
     username: row.username,
     password: row.password,
+    phone: row.phone,
     avatar: row.avatar,
     cover: row.cover,
     bio: row.bio || '',
@@ -395,10 +411,10 @@ export async function pgGetUsers() {
 
 export async function pgSaveUser(user) {
   await pool.query(`
-    INSERT INTO users (id, username, password, avatar, cover, bio, location, wenshu_coin, is_vip, vip_level, vip_exp, vip_expires_at, following_count, followers_count, likes_count, register_rank, is_signed_in_today, last_sign_in_date, consecutive_sign_days, created_at, joined_qq_group)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+    INSERT INTO users (id, username, password, phone, avatar, cover, bio, location, wenshu_coin, is_vip, vip_level, vip_exp, vip_expires_at, following_count, followers_count, likes_count, register_rank, is_signed_in_today, last_sign_in_date, consecutive_sign_days, created_at, joined_qq_group)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
     ON CONFLICT (id) DO UPDATE SET
-      username = EXCLUDED.username, password = EXCLUDED.password, avatar = EXCLUDED.avatar, cover = EXCLUDED.cover,
+      username = EXCLUDED.username, password = EXCLUDED.password, phone = EXCLUDED.phone, avatar = EXCLUDED.avatar, cover = EXCLUDED.cover,
       bio = EXCLUDED.bio, location = EXCLUDED.location, wenshu_coin = EXCLUDED.wenshu_coin, is_vip = EXCLUDED.is_vip,
       vip_level = EXCLUDED.vip_level, vip_exp = EXCLUDED.vip_exp, vip_expires_at = EXCLUDED.vip_expires_at,
       following_count = EXCLUDED.following_count, followers_count = EXCLUDED.followers_count, likes_count = EXCLUDED.likes_count,
@@ -406,7 +422,7 @@ export async function pgSaveUser(user) {
       last_sign_in_date = EXCLUDED.last_sign_in_date, consecutive_sign_days = EXCLUDED.consecutive_sign_days,
       joined_qq_group = EXCLUDED.joined_qq_group
   `, [
-    user.id, user.username, user.password, user.avatar, user.cover, user.bio || '', user.location || '',
+    user.id, user.username, user.password, user.phone, user.avatar, user.cover, user.bio || '', user.location || '',
     user.wenshuCoin || 0, user.isVip || false, user.vipLevel || 0, user.vipExp || 0, user.vipExpiresAt,
     user.followingCount || 0, user.followersCount || 0, user.likesCount || 0, user.registerRank || 0,
     user.isSignedInToday || false, user.lastSignInDate || '', user.consecutiveSignDays || 0,
@@ -619,6 +635,42 @@ export async function pgSaveBlacklist(bl) {
 
 export async function pgDeleteBlacklist(userId, blockedUserId) {
   await pool.query('DELETE FROM blacklists WHERE user_id = $1 AND blocked_user_id = $2', [userId, blockedUserId]);
+}
+
+export async function pgSaveVerificationCode(vc) {
+  await pool.query(`
+    INSERT INTO verification_codes (id, phone, code, purpose, expires_at, used, created_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7)
+  `, [vc.id, vc.phone, vc.code, vc.purpose, vc.expiresAt, vc.used || false, vc.createdAt]);
+}
+
+export async function pgFindValidVerificationCode(phone, code, purpose) {
+  const res = await pool.query(`
+    SELECT * FROM verification_codes 
+    WHERE phone = $1 AND code = $2 AND purpose = $3 AND used = false AND expires_at > $4
+    ORDER BY created_at DESC LIMIT 1
+  `, [phone, code, purpose, Date.now()]);
+  if (res.rows.length === 0) return null;
+  const row = res.rows[0];
+  return {
+    id: row.id,
+    phone: row.phone,
+    code: row.code,
+    purpose: row.purpose,
+    expiresAt: row.expires_at,
+    used: row.used,
+    createdAt: row.created_at,
+  };
+}
+
+export async function pgMarkVerificationCodeUsed(id) {
+  await pool.query('UPDATE verification_codes SET used = true WHERE id = $1', [id]);
+}
+
+export async function pgFindUserByPhone(phone) {
+  const res = await pool.query('SELECT * FROM users WHERE phone = $1', [phone]);
+  if (res.rows.length === 0) return null;
+  return rowToUser(res.rows[0]);
 }
 
 export { pool };

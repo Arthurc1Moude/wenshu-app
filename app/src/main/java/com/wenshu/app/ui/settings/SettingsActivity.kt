@@ -61,6 +61,10 @@ class SettingsActivity : AppCompatActivity() {
             showPrivacySettings()
         }
 
+        binding.itemAccountSecurity.setOnClickListener {
+            startActivity(Intent(this, AccountSecurityActivity::class.java))
+        }
+
         binding.itemShareApp.setOnClickListener {
             shareApp()
         }

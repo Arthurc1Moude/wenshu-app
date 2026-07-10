@@ -7,7 +7,8 @@ data class LoginRequest(
 
 data class RegisterRequest(
     val username: String,
-    val password: String
+    val password: String,
+    val phone: String? = null
 )
 
 data class AuthResponse(
@@ -92,9 +93,40 @@ data class UpdateUserRequest(
     val bio: String? = null,
     val avatar: String? = null,
     val cover: String? = null,
-    val location: String? = null
+    val location: String? = null,
+    val phone: String? = null
 )
 
 data class UploadResponse(
     val url: String
+)
+
+data class SendCodeRequest(
+    val phone: String,
+    val purpose: String
+)
+
+data class SendCodeResponse(
+    val success: Boolean,
+    val message: String,
+    val devCode: String? = null
+)
+
+data class BindPhoneRequest(
+    val phone: String,
+    val code: String
+)
+
+data class ChangePasswordRequest(
+    val oldPassword: String? = null,
+    val newPassword: String,
+    val confirmPassword: String,
+    val phone: String? = null,
+    val code: String? = null
+)
+
+data class SimpleResponse(
+    val success: Boolean = false,
+    val message: String? = null,
+    val error: String? = null
 )

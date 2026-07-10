@@ -21,7 +21,9 @@ import {
   getRedeemCodes, saveRedeemCode, saveRedeemCodes,
   getRedeemRecords, addRedeemRecord,
   getRegisterCount, incrementRegisterCount,
-  seedInitialData
+  seedInitialData,
+  saveVerificationCode, findValidVerificationCode, markVerificationCodeUsed,
+  findUserByPhone
 } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -78,6 +80,33 @@ async function isBlocked(userId1, userId2) {
     (b.userId === userId1 && b.blockedUserId === userId2) ||
     (b.userId === userId2 && b.blockedUserId === userId1)
   );
+}
+
+function validatePassword(password) {
+  if (!password || password.length < 8) {
+    return { valid: false, message: '密码长度至少8位' };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, message: '密码需包含至少1个小写字母' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: '密码需包含至少1个大写字母' };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, message: '密码需包含至少1个数字' };
+  }
+  if (/[\u4e00-\u9fa5]/.test(password)) {
+    return { valid: false, message: '密码不能包含中文字符' };
+  }
+  return { valid: true };
+}
+
+function validatePhone(phone) {
+  return /^1[3-9]\d{9}$/.test(phone);
+}
+
+function generateVerificationCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 function decoratePost(post, currentUserId, users, likes, collects) {
@@ -172,10 +201,22 @@ async function createWelcomeConversation(userId) {
 // ========== AUTH ==========
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, phone } = req.body;
     if (!username || !password) return res.status(400).json({ error: '用户名和密码必填' });
+    if (username.length < 2) return res.status(400).json({ error: '用户名至少2个字符' });
+    
+    const pwdValidation = validatePassword(password);
+    if (!pwdValidation.valid) {
+      return res.status(400).json({ error: pwdValidation.message });
+    }
+    
+    if (phone && !validatePhone(phone)) {
+      return res.status(400).json({ error: '手机号格式不正确' });
+    }
+    
     const users = await getUsers();
     if (users.find(u => u.username === username)) return res.status(400).json({ error: '用户名已存在' });
+    if (phone && users.find(u => u.phone === phone)) return res.status(400).json({ error: '该手机号已被注册' });
 
     const rank = await incrementRegisterCount();
     let bonusCoins = 0;
@@ -191,6 +232,7 @@ app.post('/api/auth/register', async (req, res) => {
       id: genId('user'),
       username,
       password,
+      phone: phone || null,
       avatar,
       cover: `https://picsum.photos/seed/cover${rank}/800/320`,
       bio: '这个人很懒，什么都没写~',
@@ -1085,6 +1127,135 @@ app.get('/api/users/:id/block-status', async (req, res) => {
     res.json({ isBlocked: blocked });
   } catch (e) {
     console.error('Block status error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// ========== VERIFICATION CODE ==========
+app.post('/api/auth/send-code', async (req, res) => {
+  try {
+    const { phone, purpose } = req.body;
+    if (!phone || !validatePhone(phone)) {
+      return res.status(400).json({ error: '手机号格式不正确' });
+    }
+    if (!purpose || !['register', 'bind_phone', 'change_password'].includes(purpose)) {
+      return res.status(400).json({ error: '无效的验证类型' });
+    }
+    
+    const code = generateVerificationCode();
+    const vc = {
+      id: genId('vc'),
+      phone,
+      code,
+      purpose,
+      expiresAt: Date.now() + 5 * 60 * 1000,
+      used: false,
+      createdAt: Date.now()
+    };
+    await saveVerificationCode(vc);
+    
+    console.log(`📱 验证码已发送到 ${phone}: ${code} (用途: ${purpose})`);
+    
+    res.json({ 
+      success: true, 
+      message: '验证码已发送',
+      devCode: process.env.NODE_ENV === 'production' ? undefined : code
+    });
+  } catch (e) {
+    console.error('Send code error:', e);
+    res.status(500).json({ error: '发送失败，请稍后重试' });
+  }
+});
+
+// ========== BIND PHONE ==========
+app.post('/api/users/me/bind-phone', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    
+    const { phone, code } = req.body;
+    if (!phone || !validatePhone(phone)) {
+      return res.status(400).json({ error: '手机号格式不正确' });
+    }
+    if (!code || code.length !== 6) {
+      return res.status(400).json({ error: '请输入6位验证码' });
+    }
+    
+    const users = await getUsers();
+    if (users.find(u => u.phone === phone && u.id !== userId)) {
+      return res.status(400).json({ error: '该手机号已被其他账号绑定' });
+    }
+    
+    const vc = await findValidVerificationCode(phone, code, 'bind_phone');
+    if (!vc) {
+      return res.status(400).json({ error: '验证码错误或已过期' });
+    }
+    
+    await markVerificationCodeUsed(vc.id);
+    
+    const me = users.find(u => u.id === userId);
+    if (!me) return res.status(401).json({ error: '用户不存在' });
+    me.phone = phone;
+    await saveUser(me);
+    
+    res.json({ success: true, message: '绑定成功' });
+  } catch (e) {
+    console.error('Bind phone error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// ========== CHANGE PASSWORD ==========
+app.post('/api/auth/change-password', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    
+    const { oldPassword, newPassword, confirmPassword, phone, code } = req.body;
+    
+    const users = await getUsers();
+    const me = users.find(u => u.id === userId);
+    if (!me) return res.status(401).json({ error: '用户不存在' });
+    
+    if (!newPassword || !confirmPassword) {
+      return res.status(400).json({ error: '请输入新密码并确认' });
+    }
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: '两次密码输入不一致' });
+    }
+    
+    const pwdValidation = validatePassword(newPassword);
+    if (!pwdValidation.valid) {
+      return res.status(400).json({ error: pwdValidation.message });
+    }
+    
+    if (me.phone) {
+      if (!phone || !code) {
+        return res.status(400).json({ error: '请输入手机号和验证码' });
+      }
+      if (phone !== me.phone) {
+        return res.status(400).json({ error: '请输入绑定的手机号' });
+      }
+      const vc = await findValidVerificationCode(phone, code, 'change_password');
+      if (!vc) {
+        return res.status(400).json({ error: '验证码错误或已过期' });
+      }
+      await markVerificationCodeUsed(vc.id);
+    } else {
+      if (!oldPassword) {
+        return res.status(400).json({ error: '请输入原密码' });
+      }
+      if (me.password !== oldPassword) {
+        return res.status(400).json({ error: '原密码错误' });
+      }
+    }
+    
+    me.password = newPassword;
+    await saveUser(me);
+    
+    res.json({ success: true, message: '密码修改成功' });
+  } catch (e) {
+    console.error('Change password error:', e);
     res.status(500).json({ error: '服务器错误' });
   }
 });

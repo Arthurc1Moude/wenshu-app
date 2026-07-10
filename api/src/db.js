@@ -16,7 +16,9 @@ import {
   pgGetRedeemCodes, pgSaveRedeemCode,
   pgGetRedeemRecords, pgSaveRedeemRecord,
   pgGetRegisterCount, pgIncrementRegisterCount,
-  pgGetBlacklists, pgSaveBlacklist, pgDeleteBlacklist
+  pgGetBlacklists, pgSaveBlacklist, pgDeleteBlacklist,
+  pgSaveVerificationCode, pgFindValidVerificationCode, pgMarkVerificationCodeUsed,
+  pgFindUserByPhone
 } from './db-postgres.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -81,6 +83,7 @@ function getCache() {
       collects: readJSON('collects.json', []),
       follows: readJSON('follows.json', []),
       blacklists: readJSON('blacklists.json', []),
+      verificationCodes: readJSON('verification_codes.json', []),
       meta: readJSON('meta.json', { registerCount: 0 }),
     };
   }
@@ -100,6 +103,7 @@ function writeLikes(likes) { writeJSON('likes.json', likes); }
 function writeCollects(collects) { writeJSON('collects.json', collects); }
 function writeFollows(follows) { writeJSON('follows.json', follows); }
 function writeBlacklists(blacklists) { writeJSON('blacklists.json', blacklists); }
+function writeVerificationCodes(codes) { writeJSON('verification_codes.json', codes); }
 
 export async function getUsers() {
   if (usePostgres) return pgGetUsers();
@@ -573,6 +577,39 @@ export async function seedInitialData() {
     }
     console.log('🌱 初始种子数据已创建：', botUsers.length, '个机器人用户，', seedPosts.length, '条帖子');
   }
+}
+
+export async function saveVerificationCode(vc) {
+  if (usePostgres) return pgSaveVerificationCode(vc);
+  const cache = getCache();
+  cache.verificationCodes = cache.verificationCodes.filter(c => c.phone !== vc.phone || c.purpose !== vc.purpose);
+  cache.verificationCodes.push(vc);
+  writeVerificationCodes(cache.verificationCodes);
+}
+
+export async function findValidVerificationCode(phone, code, purpose) {
+  if (usePostgres) return pgFindValidVerificationCode(phone, code, purpose);
+  const cache = getCache();
+  const now = Date.now();
+  return cache.verificationCodes.find(
+    c => c.phone === phone && c.code === code && c.purpose === purpose && !c.used && c.expiresAt > now
+  );
+}
+
+export async function markVerificationCodeUsed(id) {
+  if (usePostgres) return pgMarkVerificationCodeUsed(id);
+  const cache = getCache();
+  const vc = cache.verificationCodes.find(c => c.id === id);
+  if (vc) {
+    vc.used = true;
+    writeVerificationCodes(cache.verificationCodes);
+  }
+}
+
+export async function findUserByPhone(phone) {
+  if (usePostgres) return pgFindUserByPhone(phone);
+  const users = await getUsers();
+  return users.find(u => u.phone === phone) || null;
 }
 
 export { usePostgres, pool };
