@@ -12,6 +12,7 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -19,12 +20,14 @@ import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
-import com.google.android.flexbox.FlexboxLayout
 import com.wenshu.app.R
+import com.wenshu.app.data.model.Comment
 import com.wenshu.app.data.model.Post
 import com.wenshu.app.databinding.ActivityPostDetailBinding
 import com.wenshu.app.ui.adapters.CommentAdapter
 import com.wenshu.app.ui.adapters.ImagePagerAdapter
+import com.wenshu.app.ui.profile.UserProfileActivity
+import com.wenshu.app.util.ImageUtils
 import com.wenshu.app.util.TimeUtils
 
 class PostDetailActivity : AppCompatActivity() {
@@ -32,8 +35,10 @@ class PostDetailActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPostDetailBinding
     private val viewModel: PostDetailViewModel by viewModels()
     private lateinit var commentAdapter: CommentAdapter
+    private lateinit var imageAdapter: ImagePagerAdapter
     private var postId: String? = null
     private var currentPost: Post? = null
+    private var replyToCommentId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,7 +67,7 @@ class PostDetailActivity : AppCompatActivity() {
     }
 
     private fun setupImagePager() {
-        val imageAdapter = ImagePagerAdapter(emptyList())
+        imageAdapter = ImagePagerAdapter()
         binding.viewPagerImages.adapter = imageAdapter
 
         binding.viewPagerImages.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
@@ -83,7 +88,7 @@ class PostDetailActivity : AppCompatActivity() {
     }
 
     private fun updateImageIndicator(position: Int) {
-        val images = currentPost?.imageUrls ?: return
+        val images = currentPost?.images ?: return
         if (images.size <= 1) {
             binding.tvImageIndicator.visibility = View.GONE
             return
@@ -113,6 +118,7 @@ class PostDetailActivity : AppCompatActivity() {
         heart.alpha = 0f
         heart.scaleX = 0.3f
         heart.scaleY = 0.3f
+        heart.setColorFilter(ContextCompat.getColor(this, R.color.seal))
 
         val fadeIn = ObjectAnimator.ofFloat(heart, View.ALPHA, 0f, 1f).setDuration(150)
         val scaleX = ObjectAnimator.ofFloat(heart, View.SCALE_X, 0.3f, 1f).setDuration(250)
@@ -136,16 +142,23 @@ class PostDetailActivity : AppCompatActivity() {
 
     private fun setupComments() {
         commentAdapter = CommentAdapter(
-            comments = emptyList(),
-            onLikeClick = { },
+            onLikeClick = { comment ->
+                viewModel.toggleCommentLike(comment.id)
+            },
             onReplyClick = { comment ->
-                val replyHint = getString(R.string.reply_hint, comment.author.nickname)
-                binding.etComment.hint = replyHint
+                val name = comment.author?.displayName ?: ""
+                replyToCommentId = if (comment.isReply) comment.replyToId ?: comment.id else comment.id
+                binding.etComment.hint = "回复 @$name"
                 binding.etComment.requestFocus()
                 val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.showSoftInput(binding.etComment, InputMethodManager.SHOW_IMPLICIT)
             },
-            onUserClick = { }
+            onUserClick = { comment ->
+                val userId = comment.authorId ?: comment.author?.id ?: return@CommentAdapter
+                val intent = Intent(this, UserProfileActivity::class.java)
+                intent.putExtra("user_id", userId)
+                startActivity(intent)
+            }
         )
         binding.recyclerComments.apply {
             layoutManager = LinearLayoutManager(this@PostDetailActivity)
@@ -165,8 +178,21 @@ class PostDetailActivity : AppCompatActivity() {
         binding.layoutShare.setOnClickListener { sharePost() }
         binding.btnSendComment.setOnClickListener { sendComment() }
 
+        binding.imgAvatar.setOnClickListener { navigateToUserProfile() }
+        binding.tvNickname.setOnClickListener { navigateToUserProfile() }
+
         binding.btnSendComment.isEnabled = false
         binding.btnSendComment.alpha = 0.3f
+
+        binding.btnFollow.visibility = View.GONE
+    }
+
+    private fun navigateToUserProfile() {
+        val post = currentPost ?: return
+        val authorId = post.authorId ?: post.author?.id ?: return
+        val intent = Intent(this, UserProfileActivity::class.java)
+        intent.putExtra("user_id", authorId)
+        startActivity(intent)
     }
 
     private fun setupCommentInput() {
@@ -182,59 +208,81 @@ class PostDetailActivity : AppCompatActivity() {
             if (post != null) {
                 currentPost = post
                 bindPost(post)
+                viewModel.loadComments(post.id)
             }
         }
         viewModel.comments.observe(this) { comments ->
-            commentAdapter.updateComments(comments)
-            binding.tvCommentTitle.text = getString(R.string.comment_count, comments.size)
+            val parentComments = comments.filter { !it.isReply }
+            val repliesByParent = comments.filter { it.isReply }.groupBy { it.replyToId }
+            parentComments.forEach { parent ->
+                commentAdapter.setReplies(parent.id, repliesByParent[parent.id] ?: emptyList())
+            }
+            commentAdapter.submitList(parentComments)
+            val totalCount = comments.size
+            binding.tvCommentTitle.text = "评论 $totalCount"
+        }
+        viewModel.commentAdded.observe(this) { added ->
+            if (added) {
+                binding.etComment.text?.clear()
+                binding.etComment.hint = getString(R.string.say_something)
+                replyToCommentId = null
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(binding.etComment.windowToken, 0)
+                binding.recyclerComments.postDelayed({
+                    binding.recyclerComments.smoothScrollToPosition(commentAdapter.itemCount - 1)
+                }, 100)
+                viewModel.resetCommentAdded()
+            }
+        }
+        viewModel.actionResult.observe(this) { result ->
+            result?.let {
+                Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
+                viewModel.clearActionResult()
+            }
+        }
+        viewModel.error.observe(this) { error ->
+            error?.let {
+                Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
+                viewModel.clearError()
+            }
         }
     }
 
     private fun bindPost(post: Post) {
         with(binding) {
-            tvTitle.text = post.title
-            tvTitle.visibility = if (post.title.isBlank()) View.GONE else View.VISIBLE
+            tvTitle.visibility = View.GONE
             tvContent.text = post.content
-            tvNickname.text = post.author.nickname
-            tvTime.text = TimeUtils.getRelativeTime(post.createdAt)
-            tvLocation.text = post.location
-            layoutLocation.visibility = if (post.location != null) View.VISIBLE else View.GONE
-            imgVerified.visibility = if (post.author.isVerified) View.VISIBLE else View.GONE
+            tvNickname.text = post.author?.displayName ?: ""
+            tvTime.text = TimeUtils.formatRelativeTime(post.createdAt)
+            layoutLocation.visibility = View.GONE
+            imgVerified.visibility = if (post.author?.isVip == true) View.VISIBLE else View.GONE
 
             Glide.with(this@PostDetailActivity)
-                .load(post.author.avatarUrl)
-                .placeholder(R.drawable.bg_circle_placeholder)
+                .load(ImageUtils.normalizeUrl(post.author?.avatar))
+                .placeholder(R.drawable.bg_avatar_placeholder)
+                .error(R.drawable.bg_avatar_placeholder)
+                .centerCrop()
                 .into(imgAvatar)
 
-            val images = if (post.imageUrls.isNotEmpty()) post.imageUrls else listOf(post.coverImageUrl)
-            (viewPagerImages.adapter as? ImagePagerAdapter)?.updateImages(images)
+            imageAdapter.updateImages(post.images)
             updateImageIndicator(0)
 
             updateLikeState(post.isLiked, post.likeCount)
             updateCollectState(post.isCollected, post.collectCount)
-            tvLikeCountDetail.text = getString(R.string.like_count_post, TimeUtils.formatCount(post.likeCount.toLong()))
+            tvLikeCountDetail.text = post.likeCount.toString()
 
             layoutTags.removeAllViews()
             post.tags.forEach { tag ->
                 val tv = TextView(this@PostDetailActivity).apply {
-                    text = "#$tag#"
+                    text = tag
                     textSize = 14f
-                    setTextColor(ContextCompat.getColor(context, R.color.link))
+                    typeface = android.graphics.Typeface.SERIF
+                    setTextColor(ContextCompat.getColor(context, R.color.primary))
                     setPadding(0, 0, resources.getDimensionPixelSize(R.dimen.spacing_md), 0)
                 }
                 layoutTags.addView(tv)
             }
             layoutTags.visibility = if (post.tags.isEmpty()) View.GONE else View.VISIBLE
-
-            btnFollow.text = if (post.isFollowed) getString(R.string.following) else getString(R.string.follow)
-            btnFollow.background = ContextCompat.getDrawable(
-                this@PostDetailActivity,
-                if (post.isFollowed) R.drawable.bg_follow_button_outline else R.drawable.bg_follow_button
-            )
-            btnFollow.setTextColor(ContextCompat.getColor(
-                this@PostDetailActivity,
-                if (post.isFollowed) R.color.text_secondary else R.color.on_primary
-            ))
         }
     }
 
@@ -263,32 +311,28 @@ class PostDetailActivity : AppCompatActivity() {
 
     private fun updateLikeState(isLiked: Boolean, count: Int) {
         binding.imgLike.setImageResource(if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart)
-        binding.imgLike.setColorFilter(ContextCompat.getColor(this, if (isLiked) R.color.liked else R.color.text_primary))
+        binding.imgLike.setColorFilter(ContextCompat.getColor(this, if (isLiked) R.color.seal else R.color.text_primary))
+        binding.tvLikeCountDetail.text = count.toString()
     }
 
     private fun updateCollectState(isCollected: Boolean, count: Int) {
         binding.imgCollect.setImageResource(if (isCollected) R.drawable.ic_star_filled else R.drawable.ic_star)
-        binding.imgCollect.setColorFilter(ContextCompat.getColor(this, if (isCollected) R.color.collected else R.color.text_primary))
+        binding.imgCollect.setColorFilter(ContextCompat.getColor(this, if (isCollected) R.color.ink else R.color.text_primary))
     }
 
     private fun sendComment() {
         val content = binding.etComment.text.toString().trim()
         if (content.isBlank()) return
-        viewModel.addComment(content)
-        binding.etComment.text?.clear()
-        binding.etComment.hint = getString(R.string.say_something)
-        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(binding.etComment.windowToken, 0)
-        binding.recyclerComments.postDelayed({
-            binding.recyclerComments.smoothScrollToPosition(0)
-        }, 100)
+        viewModel.addComment(content, replyToCommentId)
     }
 
     private fun sharePost() {
         val post = currentPost ?: return
+        val username = post.author?.username ?: "user"
+        val shareUrl = "https://wenshucom.vercel.app/$username/${post.id}"
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, "${post.title}\n${post.content}\n\n—— 来自文书APP")
+            putExtra(Intent.EXTRA_TEXT, "${post.content}\n\n$shareUrl\n—— 来自文书")
         }
         startActivity(Intent.createChooser(shareIntent, getString(R.string.share)))
     }

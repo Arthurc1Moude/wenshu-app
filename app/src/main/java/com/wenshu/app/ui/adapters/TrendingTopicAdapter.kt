@@ -1,22 +1,17 @@
 package com.wenshu.app.ui.adapters
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.wenshu.app.databinding.ItemTrendingTopicBinding
-
-data class TrendingTopic(
-    val rank: Int,
-    val title: String,
-    val description: String,
-    val hotValue: String,
-    val isHot: Boolean
-)
+import com.wenshu.app.ui.discover.TrendingTopic
 
 class TrendingTopicAdapter(
-    private var topics: List<TrendingTopic> = emptyList(),
     private val onTopicClick: (TrendingTopic) -> Unit
-) : RecyclerView.Adapter<TrendingTopicAdapter.TopicViewHolder>() {
+) : ListAdapter<TrendingTopic, TrendingTopicAdapter.TopicViewHolder>(TopicDiffCallback()) {
 
     inner class TopicViewHolder(val binding: ItemTrendingTopicBinding) : RecyclerView.ViewHolder(binding.root)
 
@@ -26,13 +21,13 @@ class TrendingTopicAdapter(
     }
 
     override fun onBindViewHolder(holder: TopicViewHolder, position: Int) {
-        val topic = topics[position]
+        val topic = getItem(position)
         with(holder.binding) {
             tvRank.text = topic.rank.toString()
             tvTopicTitle.text = topic.title
-            tvTopicDesc.text = topic.description
-            tvHotValue.text = topic.hotValue
-            imgFire.visibility = if (topic.isHot) android.view.View.VISIBLE else android.view.View.GONE
+            tvTopicDesc.visibility = View.GONE
+            tvHotValue.text = topic.heat
+            imgFire.visibility = if (topic.rank in 1..3) View.VISIBLE else View.GONE
 
             tvRank.setTextColor(root.context.getColor(
                 when (topic.rank) {
@@ -47,10 +42,13 @@ class TrendingTopicAdapter(
         }
     }
 
-    override fun getItemCount() = topics.size
+    class TopicDiffCallback : DiffUtil.ItemCallback<TrendingTopic>() {
+        override fun areItemsTheSame(oldItem: TrendingTopic, newItem: TrendingTopic): Boolean {
+            return oldItem.title == newItem.title
+        }
 
-    fun updateTopics(newTopics: List<TrendingTopic>) {
-        topics = newTopics
-        notifyDataSetChanged()
+        override fun areContentsTheSame(oldItem: TrendingTopic, newItem: TrendingTopic): Boolean {
+            return oldItem == newItem
+        }
     }
 }

@@ -12,7 +12,7 @@
         android:layout_height="wrap_content"
         android:textColor="@color/text_secondary"
         android:textSize="@dimen/text_caption"
-        android:fontFamily="sans-serif-medium" />
+        android:fontFamily="serif" />
 
     <TextView
         android:id="@+id/tv_content"
@@ -21,6 +21,7 @@
         android:layout_weight="1"
         android:textColor="@color/text_primary"
         android:textSize="@dimen/text_caption"
+        android:fontFamily="serif"
         android:layout_marginStart="@dimen/spacing_xs"
         android:lineSpacingMultiplier="1.4" />
 </LinearLayout>

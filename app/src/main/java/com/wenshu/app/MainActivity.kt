@@ -2,90 +2,245 @@ package com.wenshu.app
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import com.google.android.material.badge.BadgeDrawable
+import com.wenshu.app.data.SharedPreferencesManager
+import com.wenshu.app.data.repository.PostRepository
 import com.wenshu.app.databinding.ActivityMainBinding
+import com.wenshu.app.ui.auth.LoginActivity
 import com.wenshu.app.ui.discover.DiscoverFragment
 import com.wenshu.app.ui.home.HomeFragment
 import com.wenshu.app.ui.notifications.NotificationsFragment
 import com.wenshu.app.ui.postdetail.PostDetailActivity
 import com.wenshu.app.ui.profile.ProfileFragment
 import com.wenshu.app.ui.publish.PublishFragment
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    
+    private var homeFragment: HomeFragment? = null
+    private var discoverFragment: DiscoverFragment? = null
+    private var publishFragment: PublishFragment? = null
+    private var notificationsFragment: NotificationsFragment? = null
+    private var profileFragment: ProfileFragment? = null
+    
     private var currentFragment: Fragment? = null
-
-    private val homeFragment by lazy { HomeFragment() }
-    private val discoverFragment by lazy { DiscoverFragment() }
-    private val publishFragment by lazy { PublishFragment() }
-    private val notificationsFragment by lazy { NotificationsFragment() }
-    private val profileFragment by lazy { ProfileFragment() }
-
-    private var isPublishing = false
+    private var unreadBadge: BadgeDrawable? = null
+    private val repository = PostRepository.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        Log.d("MainActivity", "onCreate started")
 
-        if (savedInstanceState == null) {
-            switchFragment(homeFragment)
-            binding.bottomNav.selectedItemId = R.id.nav_home
+        if (!SharedPreferencesManager.isLoggedIn()) {
+            Log.d("MainActivity", "User not logged in, navigating to login")
+            navigateToLogin()
+            return
         }
 
-        setupBottomNavigation()
+        try {
+            binding = ActivityMainBinding.inflate(layoutInflater)
+            setContentView(binding.root)
+            Log.d("MainActivity", "Content view set successfully")
+
+            restoreFragments(savedInstanceState)
+            setupBottomNavigation()
+            
+            if (savedInstanceState == null) {
+                binding.bottomNav.selectedItemId = R.id.nav_home
+                Log.d("MainActivity", "Initial navigation to HomeFragment")
+            } else {
+                val tag = savedInstanceState.getString("current_fragment_tag", "home")
+                val navId = tagToNavId(tag)
+                binding.bottomNav.selectedItemId = navId
+            }
+
+            observeUnreadCount()
+            
+            lifecycleScope.launch {
+                try {
+                    repository.loadNotifications()
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to load notifications", e)
+                }
+            }
+            
+            Log.d("MainActivity", "onCreate completed successfully")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "FATAL ERROR in onCreate", e)
+            throw e
+        }
+    }
+
+    private fun restoreFragments(savedInstanceState: Bundle?) {
+        if (savedInstanceState != null) {
+            homeFragment = supportFragmentManager.findFragmentByTag("home") as? HomeFragment
+            discoverFragment = supportFragmentManager.findFragmentByTag("discover") as? DiscoverFragment
+            publishFragment = supportFragmentManager.findFragmentByTag("publish") as? PublishFragment
+            notificationsFragment = supportFragmentManager.findFragmentByTag("notifications") as? NotificationsFragment
+            profileFragment = supportFragmentManager.findFragmentByTag("profile") as? ProfileFragment
+            val currentTag = savedInstanceState.getString("current_fragment_tag", "home")
+            currentFragment = supportFragmentManager.findFragmentByTag(currentTag)
+            Log.d("MainActivity", "Restored fragments from saved state, current: $currentTag")
+        }
+    }
+
+    private fun tagToNavId(tag: String): Int {
+        return when (tag) {
+            "home" -> R.id.nav_home
+            "discover" -> R.id.nav_discover
+            "publish" -> R.id.nav_publish
+            "notifications" -> R.id.nav_notifications
+            "profile" -> R.id.nav_profile
+            else -> R.id.nav_home
+        }
+    }
+
+    private fun navIdToTag(navId: Int): String {
+        return when (navId) {
+            R.id.nav_home -> "home"
+            R.id.nav_discover -> "discover"
+            R.id.nav_publish -> "publish"
+            R.id.nav_notifications -> "notifications"
+            R.id.nav_profile -> "profile"
+            else -> "home"
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        val tag = when (currentFragment) {
+            is HomeFragment -> "home"
+            is DiscoverFragment -> "discover"
+            is PublishFragment -> "publish"
+            is NotificationsFragment -> "notifications"
+            is ProfileFragment -> "profile"
+            else -> "home"
+        }
+        outState.putString("current_fragment_tag", tag)
     }
 
     private fun setupBottomNavigation() {
+        Log.d("MainActivity", "Setting up bottom navigation")
         binding.bottomNav.setOnItemSelectedListener { item ->
-            if (isPublishing) {
-                isPublishing = false
-                return@setOnItemSelectedListener true
-            }
-            when (item.itemId) {
+            Log.d("MainActivity", "Bottom nav item selected: ${item.itemId}")
+            val fragment = when (item.itemId) {
                 R.id.nav_home -> {
-                    switchFragment(homeFragment)
-                    true
+                    if (homeFragment == null) homeFragment = HomeFragment()
+                    homeFragment!!
                 }
                 R.id.nav_discover -> {
-                    switchFragment(discoverFragment)
-                    true
+                    if (discoverFragment == null) discoverFragment = DiscoverFragment()
+                    discoverFragment!!
                 }
                 R.id.nav_publish -> {
-                    isPublishing = true
-                    switchFragment(publishFragment)
-                    true
+                    if (publishFragment == null) publishFragment = PublishFragment()
+                    publishFragment!!
                 }
                 R.id.nav_notifications -> {
-                    switchFragment(notificationsFragment)
-                    true
+                    if (notificationsFragment == null) notificationsFragment = NotificationsFragment()
+                    notificationsFragment!!
                 }
                 R.id.nav_profile -> {
-                    switchFragment(profileFragment)
-                    true
+                    if (profileFragment == null) profileFragment = ProfileFragment()
+                    profileFragment!!
                 }
-                else -> false
+                else -> {
+                    Log.e("MainActivity", "Unknown nav item: ${item.itemId}")
+                    return@setOnItemSelectedListener false
+                }
             }
+            switchFragment(fragment, navIdToTag(item.itemId))
+            true
         }
 
-        binding.bottomNav.setOnItemReselectedListener { }
+        binding.bottomNav.setOnItemReselectedListener { 
+            Log.d("MainActivity", "Bottom nav item reselected: ${it.itemId}")
+        }
+
+        unreadBadge = binding.bottomNav.getOrCreateBadge(R.id.nav_notifications)
+        unreadBadge?.backgroundColor = ContextCompat.getColor(this, R.color.seal)
+        unreadBadge?.badgeTextColor = ContextCompat.getColor(this, android.R.color.white)
+        unreadBadge?.isVisible = false
     }
 
-    private fun switchFragment(fragment: Fragment) {
-        val transaction = supportFragmentManager.beginTransaction()
-
-        currentFragment?.let { transaction.hide(it) }
-
-        if (fragment.isAdded) {
-            transaction.show(fragment)
-        } else {
-            transaction.add(R.id.fragment_container, fragment)
+    private fun observeUnreadCount() {
+        repository.unreadCount.observe(this) { count ->
+            Log.d("MainActivity", "Unread count updated: $count")
+            if (count != null && count > 0) {
+                unreadBadge?.number = count
+                unreadBadge?.isVisible = true
+            } else {
+                unreadBadge?.isVisible = false
+            }
         }
+    }
 
-        currentFragment = fragment
-        transaction.commitAllowingStateLoss()
+    private fun switchFragment(fragment: Fragment, tag: String) {
+        try {
+            Log.d("MainActivity", "switchFragment: $tag")
+
+            val transaction = supportFragmentManager.beginTransaction()
+
+            currentFragment?.let {
+                if (it !== fragment) {
+                    transaction.hide(it)
+                    Log.d("MainActivity", "Hiding current fragment: ${it.javaClass.simpleName}")
+                }
+            }
+
+            val existingFragment = supportFragmentManager.findFragmentByTag(tag)
+            if (existingFragment != null) {
+                if (existingFragment !== fragment) {
+                    Log.w("MainActivity", "Fragment exists but is different instance! Using existing.")
+                    transaction.show(existingFragment)
+                    currentFragment = existingFragment
+                    updateFragmentReference(tag, existingFragment)
+                } else {
+                    transaction.show(fragment)
+                    currentFragment = fragment
+                }
+                Log.d("MainActivity", "Showing existing fragment")
+            } else {
+                transaction.add(R.id.fragment_container, fragment, tag)
+                currentFragment = fragment
+                Log.d("MainActivity", "Adding new fragment: ${fragment.javaClass.simpleName}")
+            }
+
+            transaction.commitAllowingStateLoss()
+            Log.d("MainActivity", "Fragment transaction committed for $tag")
+
+            if (tag == "home") {
+                (currentFragment as? HomeFragment)?.refreshPosts()
+            } else if (tag == "notifications") {
+                lifecycleScope.launch {
+                    try {
+                        repository.loadNotifications()
+                        repository.markNotificationsRead()
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Failed to refresh notifications", e)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error switching fragment", e)
+        }
+    }
+
+    private fun updateFragmentReference(tag: String, fragment: Fragment) {
+        when (tag) {
+            "home" -> homeFragment = fragment as? HomeFragment
+            "discover" -> discoverFragment = fragment as? DiscoverFragment
+            "publish" -> publishFragment = fragment as? PublishFragment
+            "notifications" -> notificationsFragment = fragment as? NotificationsFragment
+            "profile" -> profileFragment = fragment as? ProfileFragment
+        }
     }
 
     fun navigateToPostDetail(postId: String) {
@@ -100,11 +255,17 @@ class MainActivity : AppCompatActivity() {
 
     fun onPostPublished() {
         binding.bottomNav.selectedItemId = R.id.nav_home
-        switchFragment(homeFragment)
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
+    fun logout() {
+        SharedPreferencesManager.logout()
+        navigateToLogin()
+    }
+
+    private fun navigateToLogin() {
+        val intent = Intent(this, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
     }
 }

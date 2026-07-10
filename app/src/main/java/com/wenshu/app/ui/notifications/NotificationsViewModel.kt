@@ -10,12 +10,12 @@ import kotlinx.coroutines.launch
 
 class NotificationsViewModel : ViewModel() {
 
-    private val _notifications = MutableLiveData<List<NotificationItem>>()
-    val notifications: LiveData<List<NotificationItem>> = _notifications
+    private val repository = PostRepository.getInstance()
 
-    private var allNotifications: List<NotificationItem> = emptyList()
-
-    private val repository = PostRepository
+    val notifications: LiveData<List<NotificationItem>> = repository.notifications
+    val unreadCount: LiveData<Int> = repository.unreadCount
+    val isLoading: LiveData<Boolean> = repository.isLoading
+    val error: LiveData<String?> = repository.error
 
     init {
         loadNotifications()
@@ -23,19 +23,21 @@ class NotificationsViewModel : ViewModel() {
 
     fun loadNotifications() {
         viewModelScope.launch {
-            allNotifications = repository.getNotifications()
-            _notifications.value = allNotifications
+            repository.loadNotifications()
         }
     }
 
-    fun selectTab(type: String) {
-        _notifications.value = when (type) {
-            "all" -> allNotifications
-            "likes" -> allNotifications.filter { it.type.name == "LIKE" || it.type.name == "COLLECT" }
-            "comments" -> allNotifications.filter { it.type.name == "COMMENT" || it.type.name == "MENTION" }
-            "follows" -> allNotifications.filter { it.type.name == "FOLLOW" }
-            "mentions" -> allNotifications.filter { it.type.name == "MENTION" }
-            else -> allNotifications
+    fun markAllRead() {
+        viewModelScope.launch {
+            repository.markNotificationsRead()
         }
+    }
+
+    fun refresh() {
+        loadNotifications()
+    }
+
+    fun clearError() {
+        repository.clearError()
     }
 }

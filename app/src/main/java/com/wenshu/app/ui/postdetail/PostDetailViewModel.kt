@@ -11,52 +11,72 @@ import kotlinx.coroutines.launch
 
 class PostDetailViewModel : ViewModel() {
 
-    private val _post = MutableLiveData<Post>()
-    val post: LiveData<Post> = _post
+    private val repository = PostRepository.getInstance()
 
-    private val _comments = MutableLiveData<List<Comment>>()
-    val comments: LiveData<List<Comment>> = _comments
+    val post: LiveData<Post?> = repository.postDetail
+    val comments: LiveData<List<Comment>> = repository.comments
+    val isLoading: LiveData<Boolean> = repository.isLoading
+    val error: LiveData<String?> = repository.error
 
-    private val repository = PostRepository
+    private val _commentAdded = MutableLiveData<Boolean>()
+    val commentAdded: LiveData<Boolean> = _commentAdded
+
+    private val _actionResult = MutableLiveData<String?>()
+    val actionResult: LiveData<String?> = _actionResult
 
     fun loadPost(postId: String) {
         viewModelScope.launch {
-            val p = repository.getPostById(postId)
-            _post.value = p
-            p?.let { _comments.value = repository.getComments(postId) }
+            repository.loadPostDetail(postId)
+        }
+    }
+
+    fun loadComments(postId: String) {
+        viewModelScope.launch {
+            repository.loadComments(postId)
         }
     }
 
     fun toggleLike() {
-        val post = _post.value ?: return
-        repository.toggleLike(post.id)
-        _post.value = repository.getPostById(post.id)
+        val currentPost = post.value ?: return
+        viewModelScope.launch {
+            val result = repository.toggleLike(currentPost.id)
+            result.onFailure { _actionResult.postValue(it.message) }
+        }
     }
 
     fun toggleCollect() {
-        val post = _post.value ?: return
-        repository.toggleCollect(post.id)
-        _post.value = repository.getPostById(post.id)
+        val currentPost = post.value ?: return
+        viewModelScope.launch {
+            val result = repository.toggleCollect(currentPost.id)
+            result.onFailure { _actionResult.postValue(it.message) }
+        }
     }
 
-    fun toggleFollow() {
-        val post = _post.value ?: return
-        repository.toggleFollow(post.author.id)
-        _post.value = repository.getPostById(post.id)
+    fun addComment(content: String, replyToId: String? = null) {
+        val currentPost = post.value ?: return
+        viewModelScope.launch {
+            val result = repository.addComment(currentPost.id, content, replyToId)
+            result.onSuccess { _commentAdded.postValue(true) }
+                .onFailure { _actionResult.postValue(it.message) }
+        }
     }
 
-    fun addComment(content: String) {
-        val post = _post.value ?: return
-        val newComment = repository.addComment(post.id, content)
-        val currentList = _comments.value?.toMutableList() ?: mutableListOf()
-        currentList.add(0, newComment)
-        _comments.value = currentList
-        _post.value = repository.getPostById(post.id)
+    fun toggleCommentLike(commentId: String) {
+        viewModelScope.launch {
+            val result = repository.toggleCommentLike(commentId)
+            result.onFailure { _actionResult.postValue(it.message) }
+        }
     }
 
-    fun sharePost() {
-        val post = _post.value ?: return
-        repository.sharePost(post.id)
-        _post.value = repository.getPostById(post.id)
+    fun resetCommentAdded() {
+        _commentAdded.value = false
+    }
+
+    fun clearActionResult() {
+        _actionResult.value = null
+    }
+
+    fun clearError() {
+        repository.clearError()
     }
 }

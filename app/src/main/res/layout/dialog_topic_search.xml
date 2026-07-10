@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/background">
+
+    <EditText
+        android:id="@+id/et_search_topic"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="@null"
+        android:paddingStart="@dimen/spacing_lg"
+        android:paddingEnd="@dimen/spacing_lg"
+        android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_hint"
+        android:textSize="@dimen/text_body"
+        android:fontFamily="serif"
+        android:hint="搜索话题..."
+        android:singleLine="true"
+        android:inputType="text"
+        android:drawableStart="@drawable/ic_search"
+        android:drawablePadding="@dimen/spacing_sm" />
+
+    <View style="@style/Divider" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_topics"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxHeight="360dp"
+        android:overScrollMode="never" />
+</LinearLayout>

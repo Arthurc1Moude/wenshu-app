@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:background="@color/background"
+        android:elevation="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:id="@+id/iv_back"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_arrow_back"
+            android:padding="4dp"
+            android:layout_gravity="start|center_vertical"
+            android:layout_marginStart="16dp" />
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="兑换码"
+            android:textColor="@color/ink"
+            android:textSize="17sp"
+            android:fontFamily="serif"
+            android:letterSpacing="0.1"
+            android:layout_gravity="center" />
+    </androidx.appcompat.widget.Toolbar>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/tv_seal"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:gravity="center"
+            android:text="印"
+            android:textColor="@color/seal"
+            android:textSize="36sp"
+            android:fontFamily="serif"
+            android:background="@color/background"
+            android:rotation="3"
+            android:layout_gravity="center"
+            android:elevation="0dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="输入兑换码"
+            android:textColor="@color/ink"
+            android:textSize="20sp"
+            android:fontFamily="serif"
+            android:letterSpacing="0.1"
+            android:layout_gravity="center"
+            android:layout_marginTop="24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="兑换会员时长或专属福利"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:fontFamily="serif"
+            android:layout_gravity="center"
+            android:layout_marginTop="8dp" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_code"
+            style="@style/WenshuInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:hint="请输入兑换码"
+            app:boxCornerRadiusTopStart="2dp"
+            app:boxCornerRadiusTopEnd="2dp"
+            app:boxCornerRadiusBottomStart="2dp"
+            app:boxCornerRadiusBottomEnd="2dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_code"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/paper"
+                android:fontFamily="serif"
+                android:inputType="textCapCharacters"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_hint"
+                android:textAllCaps="true"
+                android:padding="16dp"
+                android:letterSpacing="0.2" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:id="@+id/tv_error"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/seal"
+            android:textSize="13sp"
+            android:fontFamily="serif"
+            android:visibility="gone"
+            android:layout_marginTop="8dp" />
+
+        <Button
+            android:id="@+id/btn_redeem"
+            style="@style/WenshuButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="兑 换"
+            android:layout_marginTop="24dp" />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

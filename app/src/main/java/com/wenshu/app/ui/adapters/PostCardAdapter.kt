@@ -6,6 +6,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -13,14 +15,13 @@ import com.bumptech.glide.request.RequestOptions
 import com.wenshu.app.R
 import com.wenshu.app.data.model.Post
 import com.wenshu.app.databinding.ItemPostCardBinding
-import com.wenshu.app.util.TimeUtils
+import com.wenshu.app.util.ImageUtils
 
 class PostCardAdapter(
-    private var posts: List<Post> = emptyList(),
     private val onPostClick: (Post) -> Unit,
     private val onLikeClick: (Post) -> Unit,
     private val onUserClick: (Post) -> Unit
-) : RecyclerView.Adapter<PostCardAdapter.PostViewHolder>() {
+) : ListAdapter<Post, PostCardAdapter.PostViewHolder>(PostDiffCallback()) {
 
     inner class PostViewHolder(val binding: ItemPostCardBinding) : RecyclerView.ViewHolder(binding.root)
 
@@ -30,35 +31,43 @@ class PostCardAdapter(
     }
 
     override fun onBindViewHolder(holder: PostViewHolder, position: Int) {
-        val post = posts[position]
+        val post = getItem(position)
         with(holder.binding) {
-            tvTitle.text = post.title
-            tvUsername.text = post.author.nickname
-            tvLikeCount.text = TimeUtils.formatCount(post.likeCount.toLong())
-            tvLikeCountOverlay.text = TimeUtils.formatCount(post.likeCount.toLong())
+            tvTitle.text = post.titlePreview
+            tvUsername.text = post.author?.displayName ?: ""
+            tvLikeCount.text = post.likeCount.toString()
+            tvLikeCountOverlay.text = post.likeCount.toString()
 
-            Glide.with(imgCover.context)
-                .load(post.coverImageUrl)
-                .apply(RequestOptions().diskCacheStrategy(DiskCacheStrategy.ALL))
-                .placeholder(R.color.surface_variant)
-                .into(imgCover)
+            val firstImage = ImageUtils.normalizeUrl(post.firstImage)
+            if (firstImage != null) {
+                imgCover.visibility = View.VISIBLE
+                Glide.with(imgCover.context)
+                    .load(firstImage)
+                    .apply(RequestOptions().diskCacheStrategy(DiskCacheStrategy.ALL))
+                    .placeholder(R.color.paper)
+                    .error(R.color.paper)
+                    .into(imgCover)
+            } else {
+                imgCover.visibility = View.GONE
+            }
 
             Glide.with(imgAvatar.context)
-                .load(post.author.avatarUrl)
-                .placeholder(R.drawable.bg_circle_placeholder)
-                .error(R.drawable.bg_circle_placeholder)
+                .load(ImageUtils.normalizeUrl(post.author?.avatar))
+                .placeholder(R.drawable.bg_avatar_placeholder)
+                .error(R.drawable.bg_avatar_placeholder)
+                .centerCrop()
                 .into(imgAvatar)
 
-            imgVerified.visibility = if (post.author.isVerified) View.VISIBLE else View.GONE
+            imgVerified.visibility = if (post.author?.isVip == true) View.VISIBLE else View.GONE
 
-            val hasMultipleImages = post.imageUrls.size > 1
+            val hasMultipleImages = post.imageCount > 1
             layoutImgCount.visibility = if (hasMultipleImages) View.VISIBLE else View.GONE
-            tvImgCount.text = post.imageUrls.size.toString()
+            tvImgCount.text = post.imageCount.toString()
 
-            layoutVideoBadge.visibility = if (post.isVideo) View.VISIBLE else View.GONE
+            layoutVideoBadge.visibility = View.GONE
 
             imgLike.setImageResource(if (post.isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart)
-            imgLike.setColorFilter(root.context.getColor(if (post.isLiked) R.color.liked else R.color.text_secondary))
+            imgLike.setColorFilter(root.context.getColor(if (post.isLiked) R.color.seal else R.color.text_secondary))
 
             root.setOnClickListener { onPostClick(post) }
             imgAvatar.setOnClickListener { onUserClick(post) }
@@ -90,10 +99,13 @@ class PostCardAdapter(
         }
     }
 
-    override fun getItemCount() = posts.size
+    class PostDiffCallback : DiffUtil.ItemCallback<Post>() {
+        override fun areItemsTheSame(oldItem: Post, newItem: Post): Boolean {
+            return oldItem.id == newItem.id
+        }
 
-    fun updatePosts(newPosts: List<Post>) {
-        posts = newPosts
-        notifyDataSetChanged()
+        override fun areContentsTheSame(oldItem: Post, newItem: Post): Boolean {
+            return oldItem == newItem
+        }
     }
 }

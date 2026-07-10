@@ -1,61 +1,107 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/background">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="@dimen/toolbar_height"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="@dimen/spacing_lg"
-        android:paddingEnd="@dimen/spacing_lg">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-        <HorizontalScrollView
-            android:id="@+id/category_scroll"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:scrollbars="none"
-            android:overScrollMode="never">
-
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/chip_group"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                app:singleSelection="true"
-                app:selectionRequired="true"
-                android:gravity="center_vertical">
-            </com.google.android.material.chip.ChipGroup>
-        </HorizontalScrollView>
-
-        <ImageView
-            android:id="@+id/btn_search"
-            android:layout_width="@dimen/icon_size_large"
-            android:layout_height="@dimen/icon_size_large"
-            android:src="@drawable/ic_search"
-            android:layout_marginStart="@dimen/spacing_md"
-            android:contentDescription="@string/search_hint" />
-    </LinearLayout>
-
-    <View style="@style/Divider" />
-
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        android:id="@+id/swipe_refresh"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recycler_posts"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:paddingStart="@dimen/feed_padding"
-            android:paddingEnd="@dimen/feed_padding"
-            android:paddingBottom="@dimen/spacing_lg"
-            android:clipToPadding="false"
-            android:overScrollMode="never" />
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
-</LinearLayout>
+            android:layout_height="@dimen/toolbar_height"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="@dimen/spacing_lg"
+            android:paddingEnd="@dimen/spacing_lg">
+
+            <HorizontalScrollView
+                android:id="@+id/category_scroll"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:scrollbars="none"
+                android:overScrollMode="never">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chip_group"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    app:singleSelection="true"
+                    app:selectionRequired="true"
+                    android:gravity="center_vertical">
+                </com.google.android.material.chip.ChipGroup>
+            </HorizontalScrollView>
+
+            <ImageView
+                android:id="@+id/btn_search"
+                android:layout_width="@dimen/icon_size_large"
+                android:layout_height="@dimen/icon_size_large"
+                android:src="@drawable/ic_search"
+                android:layout_marginStart="@dimen/spacing_md"
+                android:contentDescription="@string/search_hint" />
+        </LinearLayout>
+
+        <View style="@style/Divider" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+                android:id="@+id/swipe_refresh"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recycler_posts"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:paddingStart="@dimen/feed_padding"
+                    android:paddingEnd="@dimen/feed_padding"
+                    android:paddingBottom="@dimen/spacing_lg"
+                    android:clipToPadding="false"
+                    android:overScrollMode="never" />
+            </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+            <LinearLayout
+                android:id="@+id/layout_empty"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="暂无内容"
+                    android:textColor="@color/text_tertiary"
+                    android:textSize="@dimen/text_body"
+                    android:fontFamily="serif" />
+
+                <TextView
+                    android:id="@+id/btn_retry"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_md"
+                    android:text="点击重试"
+                    android:textColor="@color/primary"
+                    android:textSize="@dimen/text_body"
+                    android:fontFamily="serif"
+                    android:padding="@dimen/spacing_sm" />
+            </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/progress_loading"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center"
+                android:indeterminateTint="@color/ink"
+                android:visibility="gone" />
+        </FrameLayout>
+    </LinearLayout>
+</FrameLayout>

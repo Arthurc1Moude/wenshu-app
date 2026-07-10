@@ -17,12 +17,17 @@
             android:gravity="center"
             android:paddingBottom="80dp">
 
-            <ImageView
+            <TextView
                 android:id="@+id/img_logo"
                 android:layout_width="120dp"
                 android:layout_height="120dp"
-                android:contentDescription="@string/app_name"
-                android:scaleType="fitCenter" />
+                android:gravity="center"
+                android:text="文"
+                android:textColor="@color/ink"
+                android:textSize="72sp"
+                android:fontFamily="serif"
+                android:letterSpacing="0.1"
+                android:background="@color/paper" />
 
             <TextView
                 android:id="@+id/tv_app_name"
@@ -32,7 +37,7 @@
                 android:text="@string/app_name"
                 android:textColor="@color/text_primary"
                 android:textSize="28sp"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="serif"
                 android:letterSpacing="0.15" />
 
             <View
@@ -47,9 +52,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/spacing_md"
-                android:text="记录生活，分享美好"
+                android:text="以文会友，以书传情"
                 android:textColor="@color/text_secondary"
                 android:textSize="@dimen/text_subtitle"
+                android:fontFamily="serif"
                 android:letterSpacing="0.05" />
         </LinearLayout>
 
@@ -61,6 +67,7 @@
             android:layout_marginBottom="48dp"
             android:text="v1.0.0"
             android:textColor="@color/text_hint"
-            android:textSize="@dimen/text_caption" />
+            android:textSize="@dimen/text_caption"
+            android:fontFamily="serif" />
     </FrameLayout>
 </layout>

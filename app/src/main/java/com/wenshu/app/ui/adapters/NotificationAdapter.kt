@@ -3,18 +3,18 @@ package com.wenshu.app.ui.adapters
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.wenshu.app.R
 import com.wenshu.app.data.model.NotificationItem
-import com.wenshu.app.data.model.NotificationType
 import com.wenshu.app.databinding.ItemNotificationBinding
-import com.wenshu.app.util.TimeUtils
+import com.wenshu.app.util.ImageUtils
 
 class NotificationAdapter(
-    private var notifications: List<NotificationItem> = emptyList(),
     private val onItemClick: (NotificationItem) -> Unit
-) : RecyclerView.Adapter<NotificationAdapter.NotifViewHolder>() {
+) : ListAdapter<NotificationItem, NotificationAdapter.NotifViewHolder>(NotifDiffCallback()) {
 
     inner class NotifViewHolder(val binding: ItemNotificationBinding) : RecyclerView.ViewHolder(binding.root)
 
@@ -24,35 +24,27 @@ class NotificationAdapter(
     }
 
     override fun onBindViewHolder(holder: NotifViewHolder, position: Int) {
-        val notif = notifications[position]
+        val notif = getItem(position)
         with(holder.binding) {
-            tvContent.text = notif.content
-            tvTime.text = TimeUtils.formatRelativeTime(notif.createdAt)
+            tvContent.text = notif.getTypeString()
+            tvTime.text = notif.timeText
             dotUnread.visibility = if (notif.isRead) View.GONE else View.VISIBLE
+            imgPostCover.visibility = View.GONE
 
-            if (notif.type == NotificationType.SYSTEM) {
+            if (notif.type == "system") {
                 imgAvatar.setImageResource(R.drawable.ic_settings)
-                imgAvatar.setBackgroundResource(R.color.surface_variant)
+                imgAvatar.setBackgroundResource(R.color.paper)
                 imgAvatar.setPadding(16, 16, 16, 16)
-                imgPostCover.visibility = View.GONE
             } else {
-                notif.user?.let { user ->
+                imgAvatar.setPadding(0, 0, 0, 0)
+                imgAvatar.setBackgroundResource(R.drawable.bg_avatar_placeholder)
+                notif.fromUser?.let { user ->
                     Glide.with(imgAvatar.context)
-                        .load(user.avatarUrl)
+                        .load(ImageUtils.normalizeUrl(user.avatar))
                         .placeholder(R.drawable.bg_avatar_placeholder)
-                        .circleCrop()
-                        .into(imgAvatar)
-                }
-
-                if (notif.postCoverUrl != null) {
-                    imgPostCover.visibility = View.VISIBLE
-                    Glide.with(imgPostCover.context)
-                        .load(notif.postCoverUrl)
-                        .placeholder(R.color.surface_variant)
+                        .error(R.drawable.bg_avatar_placeholder)
                         .centerCrop()
-                        .into(imgPostCover)
-                } else {
-                    imgPostCover.visibility = View.GONE
+                        .into(imgAvatar)
                 }
             }
 
@@ -60,10 +52,13 @@ class NotificationAdapter(
         }
     }
 
-    override fun getItemCount() = notifications.size
+    class NotifDiffCallback : DiffUtil.ItemCallback<NotificationItem>() {
+        override fun areItemsTheSame(oldItem: NotificationItem, newItem: NotificationItem): Boolean {
+            return oldItem.id == newItem.id
+        }
 
-    fun updateNotifications(newNotifs: List<NotificationItem>) {
-        notifications = newNotifs
-        notifyDataSetChanged()
+        override fun areContentsTheSame(oldItem: NotificationItem, newItem: NotificationItem): Boolean {
+            return oldItem == newItem
+        }
     }
 }

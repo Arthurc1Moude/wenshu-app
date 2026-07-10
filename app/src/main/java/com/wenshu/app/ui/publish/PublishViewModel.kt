@@ -1,66 +1,73 @@
 package com.wenshu.app.ui.publish
 
-import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.wenshu.app.data.model.Post
 import com.wenshu.app.data.repository.PostRepository
 import kotlinx.coroutines.launch
 
 class PublishViewModel : ViewModel() {
 
-    private val _selectedImages = MutableLiveData<MutableList<Uri>>(mutableListOf())
-    val selectedImages: LiveData<MutableList<Uri>> = _selectedImages
+    private val repository = PostRepository.getInstance()
 
-    private val _selectedTags = MutableLiveData<MutableList<String>>(mutableListOf())
-    val selectedTags: LiveData<MutableList<String>> = _selectedTags
+    private val _publishResult = MutableLiveData<Boolean>(false)
+    val publishResult: LiveData<Boolean> = _publishResult
 
-    private val _selectedLocation = MutableLiveData<String?>(null)
-    val selectedLocation: LiveData<String?> = _selectedLocation
+    private val _isLoading = MutableLiveData<Boolean>(false)
+    val isLoading: LiveData<Boolean> = _isLoading
 
-    private val _publishSuccess = MutableLiveData<Post?>()
-    val publishSuccess: LiveData<Post?> = _publishSuccess
+    private val _error = MutableLiveData<String?>()
+    val error: LiveData<String?> = _error
 
-    private val repository = PostRepository
-
-    fun addImage(uri: Uri) {
-        val list = _selectedImages.value ?: mutableListOf()
-        if (list.size < 9) {
-            list.add(uri)
-            _selectedImages.value = list
+    fun publish(content: String, title: String = "", imagePaths: List<String> = emptyList(), tags: List<String> = emptyList()) {
+        if (content.isBlank()) {
+            _error.value = "内容不能为空"
+            return
         }
-    }
-
-    fun removeImage(uri: Uri) {
-        val list = _selectedImages.value ?: mutableListOf()
-        list.remove(uri)
-        _selectedImages.value = list
-    }
-
-    fun toggleTag(tag: String) {
-        val list = _selectedTags.value ?: mutableListOf()
-        if (list.contains(tag)) list.remove(tag) else list.add(tag)
-        _selectedTags.value = list
-    }
-
-    fun setLocation(location: String?) {
-        _selectedLocation.value = location
-    }
-
-    fun publish(title: String, content: String) {
-        if (content.isBlank()) return
+        _isLoading.value = true
         viewModelScope.launch {
-            val post = repository.publishPost(title, content, _selectedTags.value ?: emptyList(), _selectedLocation.value)
-            _publishSuccess.value = post
+            try {
+                val uploadedImageUrls = mutableListOf<String>()
+                for (path in imagePaths) {
+                    if (path.startsWith("http")) {
+                        uploadedImageUrls.add(path)
+                    } else {
+                        val uploadResult = repository.uploadImage(path)
+                        uploadResult.onSuccess { url ->
+                            uploadedImageUrls.add(url)
+                        }.onFailure { e ->
+                            Log.e("PublishVM", "Failed to upload image: $path", e)
+                        }
+                    }
+                }
+
+                var finalContent = content
+                if (title.isNotBlank()) {
+                    finalContent = "## $title\n\n$content"
+                }
+                val tagsWithHash = tags.map { if (it.startsWith("#")) it else "#$it" }
+
+                val result = repository.createPost(finalContent, uploadedImageUrls.toList(), tagsWithHash)
+                result.onSuccess {
+                    _publishResult.postValue(true)
+                }.onFailure {
+                    _error.postValue(it.message)
+                }
+            } catch (e: Exception) {
+                Log.e("PublishVM", "Publish error", e)
+                _error.postValue(e.message ?: "发布失败")
+            }
+            _isLoading.postValue(false)
         }
     }
 
-    fun resetPublish() {
-        _publishSuccess.value = null
-        _selectedImages.value = mutableListOf()
-        _selectedTags.value = mutableListOf()
-        _selectedLocation.value = null
+    fun resetPublishResult() {
+        _publishResult.value = false
+    }
+
+    fun clearError() {
+        _error.value = null
     }
 }

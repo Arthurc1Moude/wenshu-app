@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, setToken, clearToken } from '@/utils/api';
+import { api, setToken, clearToken, API_BASE } from '@/utils/api';
 import type { User, Post, Comment, Activity, AppNotification, Conversation, Message, TabType, Chat } from '@/types';
 
 interface Toast {
@@ -257,7 +257,7 @@ export const useStore = create<AppState>((set, get) => ({
       const formData = new FormData();
       formData.append('image', file);
       const token = localStorage.getItem('wenshu_token');
-      const res = await fetch('/api/upload', {
+      const res = await fetch(`${API_BASE}/api/upload`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         body: formData,

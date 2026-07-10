@@ -4,6 +4,7 @@ import TopBar from '@/components/layout/TopBar';
 import Avatar from '@/components/ui/Avatar';
 import { Camera, Edit3, User, FileText, Save } from 'lucide-react';
 import { useStore } from '@/store';
+import { getApiUrl } from '@/utils/api';
 
 export default function EditProfilePage() {
   const { currentUser, updateProfile, isLoggedIn } = useStore();
@@ -60,7 +61,7 @@ export default function EditProfilePage() {
       } />
 
       <div className="relative h-32 bg-gray-200">
-        <img src={cover || `https://picsum.photos/seed/cover${currentUser.id}/800/320`} alt="" className="w-full h-full object-cover" />
+        <img src={getApiUrl(cover) || `https://picsum.photos/seed/cover${currentUser.id}/800/320`} alt="" className="w-full h-full object-cover" />
         <label className="absolute inset-0 bg-black/30 flex items-center justify-center cursor-pointer active:bg-black/40 transition-colors">
           <Camera className="w-6 h-6 text-white" />
           <input type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />

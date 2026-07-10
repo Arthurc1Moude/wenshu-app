@@ -6,52 +6,60 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wenshu.app.data.model.Post
 import com.wenshu.app.data.repository.PostRepository
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class HomeViewModel : ViewModel() {
 
-    private val _posts = MutableLiveData<List<Post>>()
-    val posts: LiveData<List<Post>> = _posts
+    private val repository = PostRepository.getInstance()
 
-    private val _isLoading = MutableLiveData<Boolean>()
-    val isLoading: LiveData<Boolean> = _isLoading
+    val posts: LiveData<List<Post>> = repository.posts
+    val isLoading: LiveData<Boolean> = repository.isLoading
+    val error: LiveData<String?> = repository.error
 
-    private val _currentCategory = MutableLiveData("recommend")
-    val currentCategory: LiveData<String> = _currentCategory
+    private val _currentTab = MutableLiveData(0)
+    val currentTab: LiveData<Int> = _currentTab
 
-    private val repository = PostRepository
+    private var currentSort = "new"
 
     init {
-        loadPosts("recommend")
+        loadPosts()
     }
 
-    fun loadPosts(category: String) {
-        _currentCategory.value = category
-        _isLoading.value = true
+    fun setTab(tab: Int) {
+        _currentTab.value = tab
+        currentSort = when (tab) {
+            0 -> "new"
+            1 -> "hot"
+            else -> "new"
+        }
+        loadPosts()
+    }
+
+    fun loadPosts() {
         viewModelScope.launch {
-            delay(300)
-            _posts.value = repository.getPostsByCategory(category)
-            _isLoading.value = false
+            repository.loadPosts(sort = currentSort)
         }
     }
 
-    fun refreshPosts() {
+    fun refresh() {
         viewModelScope.launch {
-            delay(500)
-            _posts.value = repository.getPostsByCategory(_currentCategory.value ?: "recommend")
-            _isLoading.value = false
+            repository.refreshPosts(sort = currentSort)
         }
     }
 
-    fun toggleLike(post: Post) {
-        repository.toggleLike(post.id)
-        val updated = repository.getPostById(post.id) ?: return
-        val current = _posts.value?.toMutableList() ?: return
-        val index = current.indexOfFirst { it.id == post.id }
-        if (index != -1) {
-            current[index] = updated
-            _posts.value = current
+    fun toggleLike(postId: String) {
+        viewModelScope.launch {
+            repository.toggleLike(postId)
         }
+    }
+
+    fun toggleCollect(postId: String) {
+        viewModelScope.launch {
+            repository.toggleCollect(postId)
+        }
+    }
+
+    fun clearError() {
+        repository.clearError()
     }
 }

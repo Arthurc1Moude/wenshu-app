@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '@/components/layout/TopBar';
-import { Gift, Coins, Check, Crown } from 'lucide-react';
 import { useStore } from '@/store';
 import { motion } from 'framer-motion';
 
@@ -23,84 +22,78 @@ export default function RedeemPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <TopBar title="兑换码" showBack />
+    <div className="min-h-screen bg-white pb-24">
+      <TopBar title="兑 换 码" showBack />
 
-      <div className="p-4">
+      <div className="p-6 max-w-[480px] mx-auto">
         <motion.div
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="bg-gradient-to-br from-black to-gray-800 rounded-3xl p-6 text-white text-center relative overflow-hidden"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="border border-divider-heavy p-8 bg-white text-center"
         >
-          <div className="absolute inset-0 bg-gradient-to-t from-gold/10 to-transparent" />
-          <div className="relative">
-            <div className="w-16 h-16 bg-gold/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Gift className="w-8 h-8 text-gold" />
-            </div>
-            <h2 className="text-xl font-bold mb-2">输入兑换码</h2>
-            <p className="text-sm text-white/60">兑换码可在QQ群定时活动中获取</p>
-          </div>
+          <div className="seal-stamp text-sm mx-auto mb-4 px-3 py-1">兑</div>
+          <h2 className="text-xl font-serif font-bold text-ink tracking-widest mb-2">兑换雅礼</h2>
+          <p className="text-sm font-serif text-text-secondary tracking-wide mb-6">凭码兑换文书币或文会资格</p>
+          <div className="w-8 h-px bg-divider-heavy mx-auto" />
         </motion.div>
 
-        <div className="mt-6 bg-white rounded-2xl p-4">
-          <label className="text-xs text-text-secondary font-medium">兑换码</label>
+        <div className="mt-6 border border-divider p-6 bg-white">
+          <label className="label-text block mb-2 tracking-widest">兑换码</label>
           <input
             type="text"
             value={code}
             onChange={e => setCode(e.target.value.toUpperCase())}
             placeholder="请输入兑换码"
-            className="w-full py-3 text-lg font-mono tracking-widest outline-none border-b-2 border-divider focus:border-black transition-colors text-center"
+            className="w-full py-3 text-lg font-serif tracking-[0.3em] outline-none border border-divider-heavy bg-paper text-center focus:border-ink transition-colors"
+            style={{ borderRadius: '2px' }}
             maxLength={12}
           />
 
           <button
             onClick={handleSubmit}
             disabled={!code.trim() || loading}
-            className="w-full mt-6 btn-black py-3.5 font-medium"
+            className="w-full mt-6 bg-ink text-white font-serif py-3.5 tracking-[0.3em] transition-colors active:bg-ink-light disabled:opacity-40"
           >
-            {loading ? '兑换中...' : '立即兑换'}
+            {loading ? '兑换中...' : '兑 换'}
           </button>
 
           {result && (
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className={`mt-4 p-4 rounded-xl text-center ${
-                result.success ? 'bg-green-50' : 'bg-red-50'
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className={`mt-6 p-5 border text-center ${
+                result.success ? 'border-ink bg-paper' : 'border-seal bg-red-50/30'
               }`}
+              style={{ borderRadius: '2px' }}
             >
               {result.success ? (
                 result.vipGranted ? (
                   <div>
-                    <div className="w-14 h-14 bg-gold/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <Crown className="w-7 h-7 text-gold" />
-                    </div>
-                    <p className="font-bold text-gold">🎉 兑换成功！文书会VIP已激活</p>
-                    <p className="text-sm text-text-secondary mt-1">有效期一年，尽享会员特权</p>
+                    <div className="seal-stamp text-sm mx-auto mb-3 px-3 py-1">文会</div>
+                    <p className="font-serif font-bold text-seal tracking-wide">兑换成功 · 文书会已激活</p>
+                    <p className="text-sm font-serif text-text-secondary mt-2 tracking-wide">有效期一年，尽享会员雅礼</p>
                   </div>
                 ) : (
                   <div>
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <Check className="w-6 h-6 text-green-600" />
-                    </div>
-                    <p className="font-bold text-green-800">兑换成功！</p>
-                    <p className="text-sm text-green-700 flex items-center justify-center gap-1 mt-1">
-                      获得 <Coins className="w-4 h-4 text-gold" /> {result.coins} 文书币
+                    <div className="w-10 h-10 border border-ink flex items-center justify-center mx-auto mb-3 font-serif text-ink font-bold">礼</div>
+                    <p className="font-serif font-bold text-ink tracking-wide">兑换成功</p>
+                    <p className="text-sm font-serif text-text-secondary mt-2 tracking-wide">
+                      获赠 <span className="text-ink font-medium">{result.coins}</span> 文书币
                     </p>
                   </div>
                 )
               ) : (
-                <p className="text-red-600 font-medium">兑换码无效或已过期</p>
+                <p className="font-serif text-seal tracking-wide">兑换码无效或已过期</p>
               )}
             </motion.div>
           )}
         </div>
 
-        <div className="mt-4 text-xs text-text-tertiary space-y-1 px-2">
-          <p>• 兑换码区分大小写，请正确输入</p>
-          <p>• 每个兑换码仅可使用一次</p>
-          <p>• 加入QQ群(702404026)参与定时抢码活动</p>
-          <p>• 部分兑换码可免费开通文书会VIP</p>
+        <div className="mt-6 text-xs text-text-tertiary space-y-1.5 px-1 font-serif tracking-wide leading-relaxed">
+          <p>· 兑换码不区分大小写，请正确输入</p>
+          <p>· 每码每人仅可使用一次</p>
+          <p>· 加入QQ群（702404026）参与定时发放活动</p>
+          <p>· 部分兑换码可免费获赠文书会资格</p>
         </div>
       </div>
     </div>

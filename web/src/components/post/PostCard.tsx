@@ -1,15 +1,57 @@
 import { useState } from 'react';
-import { Heart, MessageCircle, Bookmark, MoreHorizontal, Crown, Play } from 'lucide-react';
+import { Heart, MessageCircle, Bookmark, MoreHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Avatar from '@/components/ui/Avatar';
 import type { Post } from '@/types';
 import { useStore } from '@/store';
 import { formatTime } from '@/utils/format';
+import { getApiUrl } from '@/utils/api';
 
 interface PostCardProps {
   post: Post;
   index?: number;
+}
+
+function HeartIcon({ filled }: { filled: boolean }) {
+  if (filled) {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#C23A2B" stroke="#C23A2B" strokeWidth="1.5">
+        <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+      </svg>
+    );
+  }
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+    </svg>
+  );
+}
+
+function CommentIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
+    </svg>
+  );
+}
+
+function BookmarkIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill={filled ? '#1A1A1A' : 'none'} stroke="currentColor" strokeWidth="1.5">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+    </svg>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="12" cy="12" r="1" fill="currentColor"/>
+      <circle cx="19" cy="12" r="1" fill="currentColor"/>
+      <circle cx="5" cy="12" r="1" fill="currentColor"/>
+    </svg>
+  );
 }
 
 export default function PostCard({ post, index = 0 }: PostCardProps) {
@@ -31,14 +73,14 @@ export default function PostCard({ post, index = 0 }: PostCardProps) {
     const count = post.images.length;
     const gridClass = count === 1 ? 'grid-cols-1' : count === 2 ? 'grid-cols-2' : count === 4 ? 'grid-cols-2' : 'grid-cols-3';
     return (
-      <div className={`grid ${gridClass} gap-1 mt-3`}>
+      <div className={`grid ${gridClass} gap-px mt-3 bg-divider`}>
         {post.images.slice(0, 9).map((img, i) => (
-          <div key={i} className={`relative overflow-hidden bg-gray-100 ${count === 1 ? 'aspect-[4/3] rounded-xl' : 'aspect-square rounded-lg'}`}>
-            <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
+          <div key={i} className={`relative overflow-hidden bg-paper ${count === 1 ? 'aspect-[4/3]' : 'aspect-square'}`}>
+            <img src={getApiUrl(img)} alt="" className="w-full h-full object-cover" loading="lazy" />
             {i === 0 && post.tags && post.tags.length > 0 && post.tags[0] && (
-              <div className="absolute top-2 left-2 flex items-center gap-1">
+              <div className="absolute top-2 left-2">
                 {post.tags.slice(0, 1).map(tag => (
-                  <span key={tag} className="text-[10px] bg-black/50 text-white px-1.5 py-0.5 rounded-full backdrop-blur-sm">#{tag}</span>
+                  <span key={tag} className="text-[11px] bg-white/90 text-ink px-2 py-0.5 font-serif">#{tag}</span>
                 ))}
               </div>
             )}
@@ -50,10 +92,10 @@ export default function PostCard({ post, index = 0 }: PostCardProps) {
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05, duration: 0.3 }}
-      className="bg-white px-4 py-3 active:bg-gray-50 transition-colors"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: Math.min(index * 0.03, 0.3), duration: 0.3 }}
+      className="bg-white px-4 py-4 active:bg-paper transition-colors border-b border-divider"
       onClick={() => navigate(`/post/${post.id}`)}
     >
       <div className="flex items-center gap-3">
@@ -62,44 +104,43 @@ export default function PostCard({ post, index = 0 }: PostCardProps) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-sm text-text-primary truncate">{author?.username}</span>
-            {author?.isVip && <Crown className="w-3.5 h-3.5 text-gold" fill="#D4AF37" />}
+            <span className="font-serif text-sm text-ink font-medium truncate tracking-wide">{author?.username}</span>
           </div>
-          <span className="text-xs text-text-tertiary">{formatTime(post.createdAt)}</span>
+          <span className="text-xs text-text-tertiary font-serif">{formatTime(post.createdAt)}</span>
         </div>
         <button onClick={(e) => e.stopPropagation()} className="p-1 -mr-1">
-          <MoreHorizontal className="w-5 h-5 text-text-tertiary" />
+          <MoreIcon />
         </button>
       </div>
 
-      <div className="mt-2 text-[15px] text-text-primary leading-relaxed whitespace-pre-wrap break-words" onDoubleClick={(e) => { e.stopPropagation(); handleDoubleTap(); }}>
+      <div className="mt-3 text-[15px] text-ink leading-[1.8] whitespace-pre-wrap break-words font-serif font-normal tracking-wide" onDoubleClick={(e) => { e.stopPropagation(); handleDoubleTap(); }}>
         {post.content}
       </div>
 
       {renderImages()}
 
-      <div className="flex items-center gap-5 mt-3" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-6 mt-3" onClick={(e) => e.stopPropagation()}>
         <button
-          className="flex items-center gap-1 active:scale-90 transition-transform"
+          className="flex items-center gap-1.5 transition-opacity active:opacity-60"
           onDoubleClick={handleDoubleTap}
           onClick={() => {
             if (!isLoggedIn) { navigate('/login'); return; }
             toggleLike(post.id);
           }}
         >
-          <Heart className={`w-5 h-5 transition-colors ${post.isLiked ? 'text-danger fill-danger' : 'text-text-secondary'}`} />
-          <span className={`text-xs ${post.isLiked ? 'text-danger' : 'text-text-secondary'}`}>{post.likeCount || ''}</span>
+          <HeartIcon filled={post.isLiked} />
+          <span className={`text-xs font-serif ${post.isLiked ? 'text-seal' : 'text-text-secondary'}`}>{post.likeCount || ''}</span>
         </button>
-        <button className="flex items-center gap-1 active:scale-90 transition-transform" onClick={() => navigate(`/post/${post.id}`)}>
-          <MessageCircle className="w-5 h-5 text-text-secondary" />
-          <span className="text-xs text-text-secondary">{post.commentCount || ''}</span>
+        <button className="flex items-center gap-1.5 text-text-secondary transition-opacity active:opacity-60" onClick={() => navigate(`/post/${post.id}`)}>
+          <CommentIcon />
+          <span className="text-xs font-serif">{post.commentCount || ''}</span>
         </button>
-        <button className="flex items-center gap-1 active:scale-90 transition-transform" onClick={() => {
+        <button className="flex items-center gap-1.5 transition-opacity active:opacity-60" onClick={() => {
           if (!isLoggedIn) { navigate('/login'); return; }
           toggleCollect(post.id);
         }}>
-          <Bookmark className={`w-5 h-5 transition-colors ${post.isCollected ? 'text-black fill-black' : 'text-text-secondary'}`} />
-          <span className={`text-xs ${post.isCollected ? 'text-black' : 'text-text-secondary'}`}>{post.collectCount || ''}</span>
+          <BookmarkIcon filled={post.isCollected} />
+          <span className={`text-xs font-serif ${post.isCollected ? 'text-ink' : 'text-text-secondary'}`}>{post.collectCount || ''}</span>
         </button>
       </div>
 
@@ -108,17 +149,17 @@ export default function PostCard({ post, index = 0 }: PostCardProps) {
           <motion.div
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: [0, 1.3, 1], opacity: [0, 1, 1] }}
-            exit={{ scale: 0.8, opacity: 0 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: 0.6 }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            style={{ position: 'fixed', left: '50%', top: '40%', transform: 'translate(-50%,-50%)', zIndex: 50 }}
+            style={{ position: 'fixed', left: '50%', top: '40%', transform: 'translate(-50%,-50%)', zIndex: 50, pointerEvents: 'none' }}
           >
-            <Heart className="w-24 h-24 text-danger fill-danger drop-shadow-2xl" />
+            <HeartIcon filled={true} />
+            <div style={{ position: 'absolute', inset: 0, transform: 'scale(3)' }}>
+              <HeartIcon filled={true} />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <div className="divider mt-3" />
     </motion.article>
   );
 }

@@ -3,19 +3,15 @@ package com.wenshu.app
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.content.Intent
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.View
 import android.view.ViewTreeObserver
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import androidx.appcompat.app.AppCompatActivity
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.DataSource
-import com.bumptech.glide.load.engine.GlideException
-import com.bumptech.glide.request.RequestListener
-import com.bumptech.glide.request.target.Target
+import com.wenshu.app.data.SharedPreferencesManager
 import com.wenshu.app.databinding.ActivitySplashBinding
+import com.wenshu.app.ui.auth.LoginActivity
 
 class SplashActivity : AppCompatActivity() {
 
@@ -28,8 +24,8 @@ class SplashActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.imgLogo.alpha = 0f
-        binding.imgLogo.scaleX = 0.5f
-        binding.imgLogo.scaleY = 0.5f
+        binding.imgLogo.scaleX = 0.8f
+        binding.imgLogo.scaleY = 0.8f
         binding.tvAppName.alpha = 0f
         binding.tvAppName.translationY = 40f
         binding.tvSlogan.alpha = 0f
@@ -46,26 +42,13 @@ class SplashActivity : AppCompatActivity() {
             }
         })
 
-        Glide.with(this)
-            .load("file:///android_asset/文书.png")
-            .listener(object : RequestListener<Drawable> {
-                override fun onLoadFailed(e: GlideException?, model: Any?, target: Target<Drawable>, isFirstResource: Boolean): Boolean {
-                    scheduleNavigation()
-                    return false
-                }
-                override fun onResourceReady(resource: Drawable, model: Any, target: Target<Drawable>?, dataSource: DataSource, isFirstResource: Boolean): Boolean {
-                    return false
-                }
-            })
-            .into(binding.imgLogo)
-
         scheduleNavigation()
     }
 
     private fun startAnimations() {
         val logoFade = ObjectAnimator.ofFloat(binding.imgLogo, View.ALPHA, 0f, 1f).setDuration(700)
-        val logoScaleX = ObjectAnimator.ofFloat(binding.imgLogo, View.SCALE_X, 0.5f, 1f).setDuration(700)
-        val logoScaleY = ObjectAnimator.ofFloat(binding.imgLogo, View.SCALE_Y, 0.5f, 1f).setDuration(700)
+        val logoScaleX = ObjectAnimator.ofFloat(binding.imgLogo, View.SCALE_X, 0.8f, 1f).setDuration(700)
+        val logoScaleY = ObjectAnimator.ofFloat(binding.imgLogo, View.SCALE_Y, 0.8f, 1f).setDuration(700)
 
         val nameFade = ObjectAnimator.ofFloat(binding.tvAppName, View.ALPHA, 0f, 1f).setDuration(500)
         val nameTranslate = ObjectAnimator.ofFloat(binding.tvAppName, View.TRANSLATION_Y, 40f, 0f).setDuration(500)
@@ -96,13 +79,18 @@ class SplashActivity : AppCompatActivity() {
     }
 
     private fun scheduleNavigation() {
-        binding.root.postDelayed({ navigateToMain() }, 2800)
+        binding.root.postDelayed({ navigate() }, 2200)
     }
 
-    private fun navigateToMain() {
+    private fun navigate() {
         if (hasNavigated) return
         hasNavigated = true
-        startActivity(Intent(this, MainActivity::class.java))
+
+        if (SharedPreferencesManager.isLoggedIn()) {
+            startActivity(Intent(this, MainActivity::class.java))
+        } else {
+            startActivity(Intent(this, LoginActivity::class.java))
+        }
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         finish()
     }

@@ -26,13 +26,13 @@
                     android:layout_width="match_parent"
                     android:layout_height="@dimen/profile_cover_height"
                     android:scaleType="centerCrop"
-                    android:background="@color/surface_variant"
+                    android:background="@color/paper"
                     android:contentDescription="@null" />
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="@dimen/profile_cover_height"
-                    android:background="@drawable/bg_scrim_bottom" />
+                    android:background="@drawable/bg_profile_cover_shadow" />
 
                 <FrameLayout
                     android:layout_width="match_parent"
@@ -81,27 +81,34 @@
                     android:orientation="vertical"
                     android:paddingStart="@dimen/spacing_lg"
                     android:paddingEnd="@dimen/spacing_lg"
-                    android:layout_marginTop="-50dp">
+                    android:layout_marginTop="-36dp">
+
+                    <ImageView
+                        android:id="@+id/img_avatar"
+                        android:layout_width="80dp"
+                        android:layout_height="80dp"
+                        android:src="@drawable/bg_circle_placeholder"
+                        android:scaleType="centerCrop"
+                        android:background="@color/background"
+                        android:padding="3dp"
+                        android:contentDescription="@null" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="bottom"
+                        android:layout_marginTop="@dimen/spacing_sm"
+                        android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <de.hdodenhof.circleimageview.CircleImageView
-                            android:id="@+id/img_avatar"
-                            android:layout_width="80dp"
-                            android:layout_height="80dp"
-                            android:src="@drawable/bg_circle_placeholder"
-                            app:civ_border_width="3dp"
-                            app:civ_border_color="@color/background"
-                            android:contentDescription="@null" />
-
-                        <View
+                        <TextView
+                            android:id="@+id/tv_nickname"
                             android:layout_width="0dp"
-                            android:layout_height="1dp"
-                            android:layout_weight="1" />
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:textColor="@color/text_primary"
+                            android:textSize="22sp"
+                            android:fontFamily="serif"
+                            android:letterSpacing="0.05" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_edit_profile"
@@ -112,23 +119,72 @@
                             android:insetBottom="0dp"
                             android:text="@string/edit_profile"
                             android:textSize="@dimen/text_caption"
+                            android:fontFamily="serif"
                             android:paddingStart="@dimen/spacing_md"
                             android:paddingEnd="@dimen/spacing_md"
                             android:textColor="@color/text_primary"
                             app:strokeColor="@color/divider"
                             app:strokeWidth="1dp"
-                            app:cornerRadius="16dp"
-                            app:backgroundTint="@color/background" />
+                            app:cornerRadius="2dp"
+                            app:backgroundTint="@color/background"
+                            app:elevation="0dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_follow"
+                            style="@style/Widget.MaterialComponents.Button"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:layout_marginStart="@dimen/spacing_sm"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:text="关注"
+                            android:textSize="@dimen/text_caption"
+                            android:fontFamily="serif"
+                            android:paddingStart="@dimen/spacing_md"
+                            android:paddingEnd="@dimen/spacing_md"
+                            android:textColor="@color/on_primary"
+                            app:cornerRadius="2dp"
+                            app:backgroundTint="@color/ink"
+                            app:elevation="0dp"
+                            android:visibility="gone" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_message"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:layout_marginStart="@dimen/spacing_sm"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:text="发消息"
+                            android:textSize="@dimen/text_caption"
+                            android:fontFamily="serif"
+                            android:paddingStart="@dimen/spacing_md"
+                            android:paddingEnd="@dimen/spacing_md"
+                            android:textColor="@color/text_primary"
+                            app:strokeColor="@color/divider"
+                            app:strokeWidth="1dp"
+                            app:cornerRadius="2dp"
+                            app:backgroundTint="@color/background"
+                            app:elevation="0dp"
+                            android:visibility="gone" />
                     </LinearLayout>
 
                     <TextView
-                        android:id="@+id/tv_nickname"
+                        android:id="@+id/tv_vip_badge"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="@dimen/spacing_md"
-                        android:textColor="@color/text_primary"
-                        android:textSize="22sp"
-                        android:fontFamily="sans-serif-medium" />
+                        android:text="文书会"
+                        android:textColor="@color/seal"
+                        android:textSize="12sp"
+                        android:fontFamily="serif"
+                        android:background="@color/background"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:layout_marginTop="4dp"
+                        android:visibility="gone" />
 
                     <TextView
                         android:id="@+id/tv_bio"
@@ -137,6 +193,7 @@
                         android:layout_marginTop="@dimen/spacing_xs"
                         android:textColor="@color/text_secondary"
                         android:textSize="@dimen/text_body"
+                        android:fontFamily="serif"
                         android:lineSpacingExtra="2dp" />
 
                     <LinearLayout
@@ -160,7 +217,8 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="2dp"
                             android:textColor="@color/text_tertiary"
-                            android:textSize="@dimen/text_caption" />
+                            android:textSize="@dimen/text_caption"
+                            android:fontFamily="serif" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -183,7 +241,7 @@
                                 android:layout_height="wrap_content"
                                 android:textColor="@color/text_primary"
                                 android:textSize="@dimen/text_subtitle"
-                                android:fontFamily="sans-serif-medium" />
+                                android:fontFamily="serif" />
 
                             <TextView
                                 android:layout_width="wrap_content"
@@ -191,7 +249,8 @@
                                 android:layout_marginTop="2dp"
                                 android:text="@string/follow"
                                 android:textColor="@color/text_secondary"
-                                android:textSize="@dimen/text_caption" />
+                                android:textSize="@dimen/text_caption"
+                                android:fontFamily="serif" />
                         </LinearLayout>
 
                         <View
@@ -214,7 +273,7 @@
                                 android:layout_height="wrap_content"
                                 android:textColor="@color/text_primary"
                                 android:textSize="@dimen/text_subtitle"
-                                android:fontFamily="sans-serif-medium" />
+                                android:fontFamily="serif" />
 
                             <TextView
                                 android:layout_width="wrap_content"
@@ -222,7 +281,8 @@
                                 android:layout_marginTop="2dp"
                                 android:text="@string/fans"
                                 android:textColor="@color/text_secondary"
-                                android:textSize="@dimen/text_caption" />
+                                android:textSize="@dimen/text_caption"
+                                android:fontFamily="serif" />
                         </LinearLayout>
 
                         <View
@@ -245,7 +305,7 @@
                                 android:layout_height="wrap_content"
                                 android:textColor="@color/text_primary"
                                 android:textSize="@dimen/text_subtitle"
-                                android:fontFamily="sans-serif-medium" />
+                                android:fontFamily="serif" />
 
                             <TextView
                                 android:layout_width="wrap_content"
@@ -253,7 +313,8 @@
                                 android:layout_marginTop="2dp"
                                 android:text="获赞与收藏"
                                 android:textColor="@color/text_secondary"
-                                android:textSize="@dimen/text_caption" />
+                                android:textSize="@dimen/text_caption"
+                                android:fontFamily="serif" />
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>

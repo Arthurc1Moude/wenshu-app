@@ -5,73 +5,68 @@
     <data>
     </data>
 
-    <androidx.cardview.widget.CardView
+    <LinearLayout
         android:id="@+id/root"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="2dp"
-        app:cardCornerRadius="@dimen/corner_radius_sm"
-        app:cardElevation="0dp"
-        app:cardBackgroundColor="@color/background">
+        android:orientation="vertical"
+        android:background="@color/background">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <ImageView
+                android:id="@+id/img_cover"
+                android:layout_width="match_parent"
+                android:layout_height="160dp"
+                android:scaleType="centerCrop"
+                android:background="@color/paper" />
+
+        </FrameLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="@dimen/spacing_sm">
 
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-
-                <ImageView
-                    android:id="@+id/img_cover"
-                    android:layout_width="match_parent"
-                    android:layout_height="160dp"
-                    android:scaleType="centerCrop"
-                    android:background="@color/surface_variant" />
-
-            </FrameLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/tv_title"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="@dimen/spacing_sm">
+                android:layout_weight="1"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp"
+                android:fontFamily="serif"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:lineSpacingExtra="2sp"
+                android:letterSpacing="0.02" />
 
-                <TextView
-                    android:id="@+id/tv_title"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/text_primary"
-                    android:textSize="12sp"
-                    android:maxLines="2"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:lineSpacingExtra="2sp" />
+            <ImageView
+                android:id="@+id/img_heart"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_marginStart="@dimen/spacing_xs"
+                android:src="@drawable/ic_heart"
+                app:tint="@color/seal" />
 
-                <ImageView
-                    android:id="@+id/img_heart"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
-                    android:layout_marginStart="@dimen/spacing_xs"
-                    android:src="@drawable/ic_heart"
-                    app:tint="@color/text_tertiary" />
-
-                <TextView
-                    android:id="@+id/tv_like_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="2dp"
-                    android:textColor="@color/text_tertiary"
-                    android:textSize="11sp"
-                    android:includeFontPadding="false" />
-
-            </LinearLayout>
+            <TextView
+                android:id="@+id/tv_like_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="2dp"
+                android:textColor="@color/text_tertiary"
+                android:textSize="11sp"
+                android:fontFamily="serif"
+                android:includeFontPadding="false" />
 
         </LinearLayout>
 
-    </androidx.cardview.widget.CardView>
+    </LinearLayout>
 
 </layout>

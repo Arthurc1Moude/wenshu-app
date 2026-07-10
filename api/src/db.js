@@ -197,4 +197,75 @@ export function seedInitialData() {
   if (conversations.length === 0) {
     saveConversations([]);
   }
+
+  const users = getUsers();
+  const posts = getPosts();
+  if (users.length === 0 && posts.length === 0) {
+    const genId = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const botNames = ['文书小助手', '生活记录者', '读书爱好者', '咖啡控', '摄影小白', '跑步达人', '美食猎人'];
+    const botUsers = [];
+    botNames.forEach((name, i) => {
+      const color = ['000000', '333333', '555555', '1a1a1a', '2d2d2d', '4a4a4a', '666666'][i];
+      const bot = {
+        id: genId('bot'),
+        username: name,
+        password: 'bot123456',
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${color}&color=fff&size=200&bold=true`,
+        cover: `https://picsum.photos/seed/bot${i}/800/320`,
+        bio: '我是机器人，分享美好生活~',
+        wenshuCoin: Math.floor(Math.random() * 5000),
+        isVip: name === '文书小助手',
+        vipLevel: name === '文书小助手' ? 10 : 0,
+        vipExp: 0,
+        vipExpiresAt: null,
+        followingCount: Math.floor(Math.random() * 100),
+        followersCount: Math.floor(Math.random() * 2000),
+        likesCount: Math.floor(Math.random() * 5000),
+        registerRank: 0,
+        isSignedInToday: false,
+        lastSignInDate: '',
+        consecutiveSignDays: Math.floor(Math.random() * 30),
+        createdAt: Date.now() - Math.floor(Math.random() * 86400000 * 30),
+        joinedQQGroup: Math.random() > 0.5
+      };
+      botUsers.push(bot);
+    });
+    users.push(...botUsers);
+    saveUsers(users);
+
+    const seedPosts = [
+      { content: '今天天气真好，出门散步看到了很美的夕阳🌇 生活中的小确幸就是这样不期而遇～ #日常 #生活记录', images: ['https://picsum.photos/seed/p1/600/600'], tags: ['日常', '生活记录'] },
+      { content: '分享一本最近在读的书《被讨厌的勇气》，非常推荐！里面的观点颠覆了我很多固有的思维方式。#读书分享 #推荐', images: ['https://picsum.photos/seed/p2/600/800', 'https://picsum.photos/seed/p2b/600/600'], tags: ['读书分享', '推荐'] },
+      { content: '自己做的拿铁拉花，虽然不是很完美但是进步了！☕ 继续加油练习～ #咖啡 #日常打卡', images: ['https://picsum.photos/seed/p3/600/600'], tags: ['咖啡', '日常打卡'] },
+      { content: '周末去了美术馆，看到了很多喜欢的作品。艺术真的能让人静下心来。#夏日生活 #艺术', images: ['https://picsum.photos/seed/p4/800/600', 'https://picsum.photos/seed/p4b/600/600', 'https://picsum.photos/seed/p4c/600/600'], tags: ['夏日生活', '艺术'] },
+      { content: '新学会的一道菜——番茄炒蛋！看起来简单，做好吃还是需要技巧的😋 #美食 #日常', images: ['https://picsum.photos/seed/p5/600/600'], tags: ['美食', '日常'] },
+      { content: '跑步第30天打卡！从一开始跑1公里都喘到现在能轻松跑5公里，坚持真的有意义💪 #日常打卡 #运动', images: [], tags: ['日常打卡', '运动'] },
+      { content: '今天的云好美啊，像棉花糖一样☁️ 拍了好多张照片，每一张都像壁纸。#夏日生活 #摄影', images: ['https://picsum.photos/seed/p7/600/400', 'https://picsum.photos/seed/p7b/600/800'], tags: ['夏日生活', '摄影'] },
+      { content: '深夜emo时间...有时候觉得努力了很久的事情却看不到结果，但还是要相信一切都是最好的安排吧。#日常 #心情', images: [], tags: ['日常', '心情'] },
+      { content: '新买的文具到了！开箱的快乐谁懂啊✨ 这个本子的纸质超级好，写字好顺滑。#好物分享 #文具', images: ['https://picsum.photos/seed/p9/600/600', 'https://picsum.photos/seed/p9b/600/600'], tags: ['好物分享', '文具'] },
+      { content: '城市夜景永远拍不腻🌃 站在天桥上看车水马龙，感觉自己很渺小但又充满可能性。#摄影 #城市', images: ['https://picsum.photos/seed/p10/800/600'], tags: ['摄影', '城市'] },
+      { content: '夏天就是要吃西瓜🍉 冰镇西瓜配上空调，这才是夏天该有的样子！#夏日生活 #美食', images: ['https://picsum.photos/seed/p11/600/600'], tags: ['夏日生活', '美食'] },
+      { content: '今天尝试了新的妆容，感觉自己美美哒💄 女孩子要学会爱自己~ #日常 #美妆', images: ['https://picsum.photos/seed/p12/600/700'], tags: ['日常', '美妆'] },
+    ];
+
+    seedPosts.forEach((seed, i) => {
+      const author = botUsers[Math.floor(Math.random() * botUsers.length)];
+      const likeCount = Math.floor(Math.random() * 200) + 10;
+      const commentCount = Math.floor(Math.random() * 30);
+      const collectCount = Math.floor(Math.random() * 50);
+      posts.push({
+        id: genId('post'),
+        authorId: author.id,
+        content: seed.content,
+        images: seed.images,
+        tags: seed.tags,
+        likeCount,
+        commentCount,
+        collectCount,
+        createdAt: Date.now() - i * 3600000 * (Math.random() * 4 + 1)
+      });
+    });
+    savePosts(posts);
+    console.log('🌱 初始种子数据已创建：', botUsers.length, '个机器人用户，', posts.length, '条帖子');
+  }
 }

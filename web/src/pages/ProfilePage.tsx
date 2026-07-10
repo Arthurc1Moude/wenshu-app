@@ -3,12 +3,76 @@ import { useNavigate } from 'react-router-dom';
 import TopBar from '@/components/layout/TopBar';
 import Avatar from '@/components/ui/Avatar';
 import { useStore } from '@/store';
-import { Coins, Calendar, Edit3, Heart, Bookmark, FileText, Users, UserPlus, Check, ChevronRight } from 'lucide-react';
 import PostCard from '@/components/post/PostCard';
 import { formatNumber } from '@/utils/format';
+import { getApiUrl } from '@/utils/api';
+
+function EditIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>
+  );
+}
+
+function CoinIcon({ spin }: { spin?: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C23A2B" strokeWidth="1.5" className={spin ? 'animate-spin' : ''}>
+      <circle cx="12" cy="12" r="9"/>
+      <text x="12" y="16" textAnchor="middle" fontSize="10" fill="#C23A2B" stroke="none" fontFamily="serif" fontWeight="700">文</text>
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="3" y="4" width="18" height="18" rx="0" ry="0"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  );
+}
+
+function PostsTabIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+  );
+}
+
+function HeartTabIcon({ filled }: { filled?: boolean }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill={filled ? '#C23A2B' : 'none'} stroke={filled ? '#C23A2B' : 'currentColor'} strokeWidth="1.5">
+      <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+    </svg>
+  );
+}
+
+function BookmarkTabIcon({ filled }: { filled?: boolean }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill={filled ? '#1A1A1A' : 'none'} stroke="currentColor" strokeWidth="1.5">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+    </svg>
+  );
+}
 
 export default function ProfilePage() {
-  const { currentUser, isLoggedIn, signIn, loadPostsByUser, loadLikedPosts, loadSavedPosts, joinQQGroup } = useStore();
+  const { currentUser, isLoggedIn, signIn, loadPostsByUser, loadLikedPosts, loadSavedPosts } = useStore();
   const navigate = useNavigate();
   const [myPosts, setMyPosts] = useState<any[]>([]);
   const [likedPosts, setLikedPosts] = useState<any[]>([]);
@@ -45,125 +109,119 @@ export default function ProfilePage() {
     setTimeout(() => setSignAnimating(false), 1000);
   };
 
-  const handleJoinQQ = async () => {
-    await joinQQGroup();
-  };
-
-  const todayStr = new Date().toDateString();
   const isSignedToday = currentUser.lastSignInDate === new Date().toISOString().split('T')[0] || currentUser.isSignedInToday;
 
   return (
-    <div className="pb-24">
-      <TopBar title="我的" showSettings />
+    <div className="pb-24 bg-white min-h-screen">
+      <TopBar title="我 的" showSettings />
 
-      <div className="relative h-40 bg-gradient-to-br from-gray-100 to-gray-200">
-        <img src={currentUser.cover || `https://picsum.photos/seed/cover${currentUser.id}/800/320`} alt="cover" className="w-full h-full object-cover" />
+      <div className="relative h-36 bg-paper">
+        <img src={getApiUrl(currentUser.cover) || `https://picsum.photos/seed/cover${currentUser.id}/800/320`} alt="cover" className="w-full h-full object-cover opacity-70" />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 40%, #FFFFFF 100%)' }} />
       </div>
 
-      <div className="px-4 -mt-10 relative">
+      <div className="px-4 -mt-12 relative max-w-[480px] mx-auto">
         <div className="flex items-end justify-between">
-          <div className="ring-4 ring-white rounded-full">
+          <div className="border-2 border-white">
             <Avatar src={currentUser.avatar} username={currentUser.username} size="xl" isVip={currentUser.isVip} vipLevel={currentUser.vipLevel} />
           </div>
           <button
             onClick={() => navigate('/edit-profile')}
-            className="btn-outline px-4 py-1.5 text-sm flex items-center gap-1"
+            className="border border-ink text-ink px-4 py-1.5 text-sm font-serif tracking-wider flex items-center gap-1 active:bg-paper transition-colors"
+            style={{ borderRadius: '2px' }}
           >
-            <Edit3 className="w-3.5 h-3.5" />
+            <EditIcon />
             编辑资料
           </button>
         </div>
 
         <div className="mt-3">
-          <div className="flex items-center gap-1.5">
-            <h2 className="text-xl font-bold text-text-primary">{currentUser.username}</h2>
-            {currentUser.isVip && <span className="text-xs bg-gold/10 text-gold px-2 py-0.5 rounded-full font-medium">文书会 Lv.{currentUser.vipLevel}</span>}
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-serif text-ink font-medium tracking-wide">{currentUser.username}</h2>
+            {currentUser.isVip && (
+              <span className="seal-stamp text-xs">
+                文 书 会 Lv.{currentUser.vipLevel}
+              </span>
+            )}
           </div>
-          <p className="text-sm text-text-secondary mt-1">{currentUser.bio || '这个人很懒，什么都没写~'}</p>
+          <p className="text-sm text-text-secondary mt-1 font-serif leading-relaxed">{currentUser.bio || '此人无言，自有风骨'}</p>
         </div>
 
-        <div className="mt-4 bg-gray-50 rounded-2xl p-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center ${signAnimating ? 'animate-coin-spin' : ''}`}>
-              <Coins className="w-5 h-5 text-gold" />
+        <div className="mt-4 bg-paper p-4 flex items-center justify-between border border-divider">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 border border-seal/30 flex items-center justify-center bg-white">
+              <CoinIcon spin={signAnimating} />
             </div>
             <div>
-              <p className="text-xs text-text-secondary">文书币</p>
-              <p className="text-lg font-bold text-text-primary">{formatNumber(currentUser.wenshuCoin)}</p>
+              <p className="text-xs text-text-secondary font-serif tracking-wide">文书币</p>
+              <p className="text-lg font-serif text-ink font-medium">{formatNumber(currentUser.wenshuCoin)}</p>
             </div>
           </div>
           <button
             onClick={handleSignIn}
             disabled={isSignedToday}
-            className={`px-5 py-2 rounded-xl font-medium text-sm transition-all ${
-              isSignedToday ? 'bg-gray-200 text-text-tertiary' : 'bg-black text-white active:scale-95'
+            className={`px-5 py-2 font-serif text-sm tracking-wider transition-colors ${
+              isSignedToday ? 'bg-paper border border-divider text-text-tertiary' : 'bg-ink text-white active:bg-ink-light'
             }`}
+            style={{ borderRadius: '2px' }}
           >
-            {isSignedToday ? <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5" />已签到</span> : <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />每日签到</span>}
+            {isSignedToday ? <span className="flex items-center gap-1"><CheckIcon />已签到</span> : <span className="flex items-center gap-1"><CalendarIcon />每日签到</span>}
           </button>
         </div>
 
-        <div className="mt-4 flex divide-x divide-divider bg-white rounded-2xl py-3 border border-divider">
+        <div className="mt-4 flex border-t border-b border-divider bg-white">
           {[
-            { label: '关注', value: currentUser.followingCount, onClick: () => {} },
-            { label: '粉丝', value: currentUser.followersCount, onClick: () => {} },
-            { label: '获赞与收藏', value: currentUser.likesCount, onClick: () => {} },
+            { label: '关注', value: currentUser.followingCount },
+            { label: '粉丝', value: currentUser.followersCount },
+            { label: '获赞与收藏', value: currentUser.likesCount },
           ].map((s, i) => (
-            <button key={i} className="flex-1 text-center" onClick={s.onClick}>
-              <p className="text-lg font-bold text-text-primary">{formatNumber(s.value)}</p>
-              <p className="text-xs text-text-secondary mt-0.5">{s.label}</p>
-            </button>
+            <div key={i} className={`flex-1 text-center py-3 ${i > 0 ? 'border-l border-divider' : ''}`}>
+              <p className="text-lg font-serif text-ink font-medium">{formatNumber(s.value)}</p>
+              <p className="text-xs text-text-secondary mt-0.5 font-serif tracking-wide">{s.label}</p>
+            </div>
           ))}
         </div>
 
-        {!currentUser.joinedQQGroup && (
-          <button
-            onClick={handleJoinQQ}
-            className="mt-3 w-full py-3 rounded-xl bg-gold/10 text-gold font-medium text-sm flex items-center justify-center gap-2 active:bg-gold/20 transition-colors"
-          >
-            <UserPlus className="w-4 h-4" />
-            加入QQ群(702404026)领200文书币
-          </button>
-        )}
-
-        <div className="flex gap-4 mt-6 border-b border-divider">
+        <div className="flex gap-6 mt-6 border-b border-divider">
           {([
-            { key: 'posts', label: '帖子', icon: FileText },
-            { key: 'liked', label: '点赞', icon: Heart },
-            { key: 'saved', label: '收藏', icon: Bookmark },
+            { key: 'posts', label: '帖 子' },
+            { key: 'liked', label: '点 赞' },
+            { key: 'saved', label: '收 藏' },
           ] as const).map(t => {
-            const Icon = t.icon;
+            const active = tab === t.key;
             return (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex items-center gap-1 pb-3 relative text-sm transition-colors ${
-                  tab === t.key ? 'text-black font-semibold' : 'text-text-tertiary'
+                className={`flex items-center gap-1.5 pb-3 relative text-sm font-serif tracking-wider transition-colors ${
+                  active ? 'text-ink font-medium' : 'text-text-tertiary'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                {t.key === 'posts' && <PostsTabIcon />}
+                {t.key === 'liked' && <HeartTabIcon filled={active} />}
+                {t.key === 'saved' && <BookmarkTabIcon filled={active} />}
                 {t.label}
-                {tab === t.key && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-black rounded-full" />}
+                {active && <span className="absolute bottom-0 left-0 w-full h-px bg-ink" />}
               </button>
             );
           })}
         </div>
       </div>
 
-      <div className="mt-2">
+      <div className="mt-2 max-w-[480px] mx-auto">
         {tab === 'posts' && (
           myPosts.length > 0 ? myPosts.map((p, i) => <PostCard key={p.id} post={p} index={i} />) : (
-            <div className="text-center py-16 text-text-tertiary text-sm">还没有发布过帖子</div>
+            <div className="text-center py-16 text-text-tertiary text-sm font-serif">尚未执笔，敬请期待</div>
           )
         )}
         {tab === 'liked' && (
           likedPosts.length > 0 ? likedPosts.map((p, i) => <PostCard key={p.id} post={p} index={i} />) : (
-            <div className="text-center py-16 text-text-tertiary text-sm">暂无点赞的帖子</div>
+            <div className="text-center py-16 text-text-tertiary text-sm font-serif">尚无点赞</div>
           )
         )}
         {tab === 'saved' && (
           savedPosts.length > 0 ? savedPosts.map((p, i) => <PostCard key={p.id} post={p} index={i} />) : (
-            <div className="text-center py-16 text-text-tertiary text-sm">暂无收藏的帖子</div>
+            <div className="text-center py-16 text-text-tertiary text-sm font-serif">尚无收藏</div>
           )
         )}
       </div>

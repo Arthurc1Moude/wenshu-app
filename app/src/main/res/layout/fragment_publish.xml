@@ -20,6 +20,7 @@
             android:text="@string/cancel"
             android:textColor="@color/text_primary"
             android:textSize="@dimen/text_body"
+            android:fontFamily="serif"
             android:padding="@dimen/spacing_sm" />
 
         <View
@@ -28,11 +29,13 @@
             android:layout_weight="1" />
 
         <TextView
+            android:id="@+id/btn_save_draft"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/draft_save"
+            android:text="存草稿"
             android:textColor="@color/text_secondary"
             android:textSize="@dimen/text_body"
+            android:fontFamily="serif"
             android:padding="@dimen/spacing_sm"
             android:layout_marginEnd="@dimen/spacing_lg" />
 
@@ -42,7 +45,8 @@
             android:layout_width="wrap_content"
             android:layout_height="@dimen/small_button_height"
             android:text="@string/publish_button"
-            android:textAllCaps="false" />
+            android:textAllCaps="false"
+            android:fontFamily="serif" />
     </LinearLayout>
 
     <View style="@style/Divider" />
@@ -64,7 +68,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:nestedScrollingEnabled="false"
-                android:layout_marginBottom="@dimen/spacing_lg" />
+                android:layout_marginBottom="@dimen/spacing_md" />
 
             <EditText
                 android:id="@+id/et_title"
@@ -74,13 +78,14 @@
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_hint"
                 android:textSize="@dimen/text_title"
-                android:fontFamily="sans-serif-medium"
-                android:hint="@string/publish_title_hint"
+                android:fontFamily="serif"
+                android:hint="添加标题让更多人看到（可选）"
                 android:inputType="textMultiLine|textCapSentences"
                 android:maxLines="3"
                 android:gravity="top"
-                android:layout_marginBottom="@dimen/spacing_md"
-                android:lineSpacingMultiplier="1.4" />
+                android:layout_marginBottom="@dimen/spacing_sm"
+                android:lineSpacingMultiplier="1.4"
+                android:visibility="gone" />
 
             <EditText
                 android:id="@+id/et_content"
@@ -90,12 +95,22 @@
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_hint"
                 android:textSize="@dimen/text_body"
-                android:hint="@string/publish_hint"
+                android:fontFamily="serif"
+                android:hint="分享你的想法..."
                 android:inputType="textMultiLine|textCapSentences"
-                android:minLines="6"
+                android:minLines="5"
                 android:gravity="top"
                 android:lineSpacingMultiplier="1.5"
                 android:layout_marginBottom="@dimen/spacing_lg" />
+
+            <LinearLayout
+                android:id="@+id/layout_selected_tags"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="@dimen/spacing_md"
+                android:gravity="center_vertical"
+                android:visibility="gone" />
 
             <View
                 android:layout_width="match_parent"
@@ -126,7 +141,8 @@
                     android:layout_marginStart="@dimen/spacing_md"
                     android:text="@string/add_tag"
                     android:textColor="@color/text_primary"
-                    android:textSize="@dimen/text_body" />
+                    android:textSize="@dimen/text_body"
+                    android:fontFamily="serif" />
 
                 <TextView
                     android:id="@+id/tv_add_tag"
@@ -134,6 +150,7 @@
                     android:layout_height="wrap_content"
                     android:textColor="@color/text_hint"
                     android:textSize="@dimen/text_body"
+                    android:fontFamily="serif"
                     android:text="#" />
             </LinearLayout>
 
@@ -166,13 +183,60 @@
                     android:layout_marginStart="@dimen/spacing_md"
                     android:text="@string/add_location"
                     android:textColor="@color/text_primary"
-                    android:textSize="@dimen/text_body" />
+                    android:textSize="@dimen/text_body"
+                    android:fontFamily="serif" />
             </LinearLayout>
 
             <View
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/divider_height"
                 android:background="@color/divider" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/bottom_nav_height" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="@dimen/spacing_md"
+        android:background="@color/background"
+        android:elevation="4dp">
+
+        <ImageView
+            android:id="@+id/btn_add_image"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:padding="6dp"
+            android:src="@drawable/ic_image"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="图片" />
+
+        <ImageView
+            android:id="@+id/btn_add_title"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:padding="6dp"
+            android:src="@drawable/ic_title"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:layout_marginStart="@dimen/spacing_md"
+            android:contentDescription="标题" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/tv_character_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_hint"
+            android:textSize="@dimen/text_caption"
+            android:fontFamily="serif" />
+    </LinearLayout>
 </LinearLayout>

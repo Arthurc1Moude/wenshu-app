@@ -1,6 +1,8 @@
 package com.wenshu.app.ui.profile
 
+import android.app.Activity
 import android.content.Intent
+import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -8,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -17,7 +20,8 @@ import com.wenshu.app.R
 import com.wenshu.app.databinding.FragmentProfileBinding
 import com.wenshu.app.ui.adapters.PostGridAdapter
 import com.wenshu.app.ui.postdetail.PostDetailActivity
-import com.wenshu.app.util.TimeUtils
+import com.wenshu.app.ui.settings.SettingsActivity
+import com.wenshu.app.util.ImageUtils
 
 class ProfileFragment : Fragment() {
 
@@ -26,6 +30,15 @@ class ProfileFragment : Fragment() {
     private val viewModel: ProfileViewModel by viewModels()
     private lateinit var gridAdapter: PostGridAdapter
     private var currentTab = "my"
+    private var hasSignedInToday = false
+
+    private val editProfileLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.loadUserProfile()
+        }
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentProfileBinding.inflate(inflater, container, false)
@@ -35,35 +48,41 @@ class ProfileFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupUserInfo()
-        setupCoverPhoto()
         setupTabs()
         setupGrid()
         observeData()
     }
 
-    private fun setupCoverPhoto() {
-        Glide.with(this)
-            .load("https://picsum.photos/seed/wenshu-cover/800/400")
-            .centerCrop()
-            .into(binding.imgCover)
-    }
-
     private fun setupUserInfo() {
-        binding.btnEditProfile.setOnClickListener { }
-        binding.btnSettings.setOnClickListener { showSettingsSheet() }
-        binding.btnShareProfile.setOnClickListener { }
+        binding.btnSettings.setOnClickListener {
+            startActivity(Intent(requireContext(), SettingsActivity::class.java))
+        }
+        binding.btnShareProfile.setOnClickListener {
+            shareProfile()
+        }
+        binding.btnEditProfile.setOnClickListener {
+            val intent = Intent(requireContext(), EditProfileActivity::class.java)
+            editProfileLauncher.launch(intent)
+        }
+        binding.btnFollow.setOnClickListener {
+            Toast.makeText(requireContext(), "关注功能", Toast.LENGTH_SHORT).show()
+        }
+        binding.btnMessage.setOnClickListener {
+            Toast.makeText(requireContext(), "消息功能开发中", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnFollow.visibility = View.GONE
+        binding.btnMessage.visibility = View.GONE
     }
 
-    private fun showSettingsSheet() {
-        val options = arrayOf(getString(R.string.settings), getString(R.string.feedback), getString(R.string.about), getString(R.string.logout))
-        val builder = androidx.appcompat.app.AlertDialog.Builder(requireContext())
-        builder.setItems(options) { dialog, which ->
-            when (which) {
-                3 -> { }
-            }
-            dialog.dismiss()
+    private fun shareProfile() {
+        val user = viewModel.user.value ?: return
+        val shareUrl = "https://wenshucom.vercel.app/${user.username}"
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, "来看看 ${user.displayName} 在文书上的分享：$shareUrl")
         }
-        builder.show()
+        startActivity(Intent.createChooser(shareIntent, "分享个人主页"))
     }
 
     private fun setupTabs() {
@@ -89,12 +108,12 @@ class ProfileFragment : Fragment() {
                 textSize = 16f
                 setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
                 tag = "tab_$key"
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                typeface = Typeface.SERIF
             }
             container.addView(tv)
 
             val indicator = View(requireContext()).apply {
-                layoutParams = LinearLayout.LayoutParams(20.dpToPx(), 3.dpToPx()).apply {
+                layoutParams = LinearLayout.LayoutParams(20.dpToPx(), 2.dpToPx()).apply {
                     topMargin = 4.dpToPx()
                     gravity = Gravity.CENTER_HORIZONTAL
                 }
@@ -114,6 +133,10 @@ class ProfileFragment : Fragment() {
     private fun selectTab(key: String) {
         currentTab = key
         updateTabSelection()
+        when (key) {
+            "liked" -> viewModel.loadLikedPosts()
+            "collected" -> viewModel.loadSavedPosts()
+        }
         updateGrid()
     }
 
@@ -126,50 +149,100 @@ class ProfileFragment : Fragment() {
             val indicator = binding.tabLayout.findViewWithTag<View>("indicator_$key")
             val isSelected = key == currentTab
             tabView?.setTextColor(if (isSelected) black else gray)
-            tabView?.typeface = if (isSelected) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+            tabView?.typeface = if (isSelected) Typeface.create("serif", Typeface.BOLD) else Typeface.SERIF
             tabView?.textSize = if (isSelected) 16f else 15f
             indicator?.visibility = if (isSelected) View.VISIBLE else View.INVISIBLE
         }
     }
 
     private fun setupGrid() {
-        gridAdapter = PostGridAdapter(emptyList()) { post ->
+        gridAdapter = PostGridAdapter { post ->
             val intent = Intent(requireContext(), PostDetailActivity::class.java)
             intent.putExtra("post_id", post.id)
             startActivity(intent)
         }
         binding.recyclerPosts.apply {
-            layoutManager = GridLayoutManager(requireContext(), 3)
+            layoutManager = GridLayoutManager(requireContext(), 2)
             adapter = gridAdapter
             itemAnimator = null
         }
     }
 
     private fun observeData() {
-        viewModel.currentUser.observe(viewLifecycleOwner) { user ->
-            Glide.with(this)
-                .load(user.avatarUrl)
-                .placeholder(R.drawable.bg_circle_placeholder)
-                .into(binding.imgAvatar)
-            binding.tvNickname.text = user.nickname
-            binding.tvBio.text = user.bio
-            binding.tvFollowingCount.text = TimeUtils.formatCount(user.followingCount.toLong())
-            binding.tvFollowersCount.text = TimeUtils.formatCount(user.followersCount.toLong())
-            binding.tvLikedCount.text = TimeUtils.formatCount(user.totalLikesCount.toLong())
+        viewModel.user.observe(viewLifecycleOwner) { user ->
+            if (user != null) {
+                Glide.with(this)
+                    .load(ImageUtils.normalizeUrl(user.cover))
+                    .placeholder(R.color.paper)
+                    .error(R.color.paper)
+                    .centerCrop()
+                    .into(binding.imgCover)
 
-            if (user.bio.isBlank()) {
-                binding.tvBio.visibility = View.GONE
+                Glide.with(this)
+                    .load(ImageUtils.normalizeUrl(user.avatar))
+                    .placeholder(R.drawable.bg_avatar_placeholder)
+                    .error(R.drawable.bg_avatar_placeholder)
+                    .circleCrop()
+                    .into(binding.imgAvatar)
+
+                binding.tvNickname.text = user.displayName
+                binding.tvBio.text = user.bio ?: ""
+                binding.tvFollowingCount.text = user.followingCount.toString()
+                binding.tvFollowersCount.text = user.followersCount.toString()
+                binding.tvLikedCount.text = user.likesCount.toString()
+
+                binding.tvVipBadge.visibility = if (user.isVip) View.VISIBLE else View.GONE
+                binding.tvBio.visibility = if (user.bio.isNullOrBlank()) View.GONE else View.VISIBLE
+
+                if (!user.location.isNullOrBlank()) {
+                    binding.layoutLocationProfile.visibility = View.VISIBLE
+                    binding.tvLocation.text = user.location
+                } else {
+                    binding.layoutLocationProfile.visibility = View.GONE
+                }
+
+                hasSignedInToday = user.isSignedInToday
+                binding.btnEditProfile.text = "编辑资料"
             }
         }
-        viewModel.myPosts.observe(viewLifecycleOwner) { if (currentTab == "my") updateGrid() }
+        viewModel.userPosts.observe(viewLifecycleOwner) { if (currentTab == "my") updateGrid() }
         viewModel.likedPosts.observe(viewLifecycleOwner) { if (currentTab == "liked") updateGrid() }
-        viewModel.collectedPosts.observe(viewLifecycleOwner) { if (currentTab == "collected") updateGrid() }
+        viewModel.savedPosts.observe(viewLifecycleOwner) { if (currentTab == "collected") updateGrid() }
+
+        viewModel.signInResult.observe(viewLifecycleOwner) { result ->
+            result?.let {
+                Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show()
+                viewModel.clearSignInResult()
+            }
+        }
+        viewModel.followResult.observe(viewLifecycleOwner) { result ->
+            result?.let {
+                Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show()
+                viewModel.clearFollowResult()
+            }
+        }
+        viewModel.error.observe(viewLifecycleOwner) { error ->
+            error?.let {
+                Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show()
+                viewModel.clearError()
+            }
+        }
+
         updateGrid()
     }
 
     private fun updateGrid() {
-        val posts = viewModel.getCurrentTabPosts(currentTab)
-        gridAdapter.updatePosts(posts)
+        val posts = when (currentTab) {
+            "liked" -> viewModel.likedPosts.value
+            "collected" -> viewModel.savedPosts.value
+            else -> viewModel.userPosts.value
+        }
+        gridAdapter.submitList(posts ?: emptyList())
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.loadUserProfile()
     }
 
     override fun onDestroyView() {
