@@ -89,7 +89,7 @@ class FriendsActivity : AppCompatActivity() {
                 b.tvUsername.text = user.username
                 b.tvBio.text = user.bio ?: "互关好友"
                 b.tvVipBadge.visibility = if (user.isVip) View.VISIBLE else View.GONE
-                val url = if (!user.avatar.isNullOrBlank()) user.avatar else ImageUtils.getAvatarUrl(user.username)
+                val url = ImageUtils.normalizeUrl(user.avatar)
                 Glide.with(this@FriendsActivity).load(url).circleCrop()
                     .placeholder(R.drawable.bg_avatar_placeholder).error(R.drawable.bg_avatar_placeholder).into(b.imgAvatar)
                 b.root.setOnClickListener { onClick(user) }
