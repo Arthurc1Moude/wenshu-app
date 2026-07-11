@@ -246,24 +246,25 @@ class UserProfileActivity : AppCompatActivity() {
 
     private fun updateFollowButton(user: User) {
         binding.btnFollow.visibility = View.VISIBLE
+        val ctx = this
         when {
             user.isMutual -> {
-                binding.btnFollow.text = "已互关"
-                binding.btnFollow.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
-                binding.btnFollow.strokeColor = ContextCompat.getColorStateList(this, R.color.divider)
-                binding.btnFollow.setBackgroundColor(ContextCompat.getColor(this, R.color.background))
+                binding.btnFollow.text = "互相关注"
+                binding.btnFollow.setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
+                binding.btnFollow.strokeColor = ContextCompat.getColorStateList(ctx, R.color.outline)
+                binding.btnFollow.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.surface)
             }
             user.isFollowing -> {
                 binding.btnFollow.text = "已关注"
-                binding.btnFollow.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
-                binding.btnFollow.strokeColor = ContextCompat.getColorStateList(this, R.color.divider)
-                binding.btnFollow.setBackgroundColor(ContextCompat.getColor(this, R.color.background))
+                binding.btnFollow.setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
+                binding.btnFollow.strokeColor = ContextCompat.getColorStateList(ctx, R.color.outline)
+                binding.btnFollow.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.surface)
             }
             else -> {
                 binding.btnFollow.text = "关注"
-                binding.btnFollow.setTextColor(ContextCompat.getColor(this, R.color.on_primary))
-                binding.btnFollow.strokeColor = ContextCompat.getColorStateList(this, R.color.ink)
-                binding.btnFollow.setBackgroundColor(ContextCompat.getColor(this, R.color.ink))
+                binding.btnFollow.setTextColor(ContextCompat.getColor(ctx, android.R.color.white))
+                binding.btnFollow.strokeColor = ContextCompat.getColorStateList(ctx, R.color.ink)
+                binding.btnFollow.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.ink)
             }
         }
     }

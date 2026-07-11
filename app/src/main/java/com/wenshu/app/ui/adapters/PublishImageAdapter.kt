@@ -35,22 +35,28 @@ class PublishImageAdapter(
                 btnRemove.visibility = View.VISIBLE
                 imgPreview.visibility = View.VISIBLE
 
-                val uri = if (imagePath.startsWith("http")) {
-                    imagePath
-                } else {
-                    Uri.fromFile(File(imagePath))
+                try {
+                    val uri: Uri = if (imagePath.startsWith("http") || imagePath.startsWith("content://")) {
+                        Uri.parse(imagePath)
+                    } else {
+                        Uri.fromFile(File(imagePath))
+                    }
+                    Glide.with(imgPreview.context)
+                        .load(uri)
+                        .centerCrop()
+                        .placeholder(R.color.paper)
+                        .error(R.color.paper)
+                        .into(imgPreview)
+                } catch (e: Exception) {
+                    imgPreview.setImageResource(R.color.paper)
                 }
-                Glide.with(imgPreview.context)
-                    .load(uri)
-                    .centerCrop()
-                    .placeholder(R.color.paper)
-                    .into(imgPreview)
 
-                btnRemove.setOnClickListener { onRemoveClick(holder.adapterPosition) }
+                btnRemove.setOnClickListener { onRemoveClick(holder.bindingAdapterPosition) }
             } else {
-                btnAdd.visibility = View.VISIBLE
-                btnRemove.visibility = View.GONE
+                imgPreview.setImageDrawable(null)
                 imgPreview.visibility = View.GONE
+                btnRemove.visibility = View.GONE
+                btnAdd.visibility = View.VISIBLE
                 btnAdd.setOnClickListener { onAddClick() }
             }
         }
@@ -64,10 +70,11 @@ class PublishImageAdapter(
 
     fun addImage(path: String) {
         if (images.size < maxImages) {
+            val insertPos = images.size
             images.add(path)
-            notifyItemInserted(images.size)
+            notifyItemInserted(insertPos)
             if (images.size < maxImages) {
-                notifyItemChanged(images.size)
+                notifyItemChanged(insertPos + 1)
             }
         }
     }
@@ -82,7 +89,7 @@ class PublishImageAdapter(
 
     fun setImages(paths: List<String>) {
         images.clear()
-        images.addAll(paths)
+        images.addAll(paths.take(maxImages))
         notifyDataSetChanged()
     }
 }
