@@ -17,7 +17,9 @@ data class AuthResponse(
 )
 
 data class ApiError(
-    val error: String
+    val error: String,
+    val code: String? = null,
+    val suggestions: List<String>? = null
 )
 
 data class CommentRequest(

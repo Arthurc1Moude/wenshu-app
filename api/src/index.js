@@ -109,6 +109,50 @@ function generateVerificationCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+function generateUsernameSuggestions(baseUsername, existingUsers, count = 5) {
+  const suggestions = [];
+  const existingNames = new Set(existingUsers.map(u => u.username.toLowerCase()));
+  
+  const suffixes = [
+    () => Math.floor(Math.random() * 100).toString(),
+    () => Math.floor(Math.random() * 1000).toString(),
+    () => ['_', '', '__'][Math.floor(Math.random() * 3)] + ['wenshu', 'shu', 'wen', 'reader', 'writer', 'life', 'note'][Math.floor(Math.random() * 7)],
+    () => ['2024', '2025', '666', '888', '999', '00', '01'][Math.floor(Math.random() * 7)],
+    () => ['_official', '_real', '_v', '__v2', '_home', '_zone'][Math.floor(Math.random() * 6)],
+  ];
+  
+  const prefixes = ['', 'the', 'real', 'im', 'mr', 'ms', ''];
+  
+  let attempts = 0;
+  while (suggestions.length < count && attempts < 50) {
+    attempts++;
+    let candidate;
+    if (suggestions.length < 2) {
+      const suffix = suffixes[suggestions.length]();
+      candidate = baseUsername + suffix;
+    } else {
+      const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+      const suffix = suffixes[Math.floor(Math.random() * suffixes.length)]();
+      candidate = prefix + baseUsername + suffix;
+    }
+    candidate = candidate.toLowerCase().replace(/[^a-z0-9_\u4e00-\u9fa5]/g, '');
+    if (candidate.length < 2) continue;
+    if (!existingNames.has(candidate) && !suggestions.includes(candidate)) {
+      suggestions.push(candidate);
+    }
+  }
+  
+  while (suggestions.length < count) {
+    const num = Math.floor(Math.random() * 10000);
+    const candidate = `${baseUsername}${num}`;
+    if (!existingNames.has(candidate) && !suggestions.includes(candidate)) {
+      suggestions.push(candidate);
+    }
+  }
+  
+  return suggestions.slice(0, count);
+}
+
 function decoratePost(post, currentUserId, users, likes, collects) {
   const author = users.find(u => u.id === post.authorId);
   return {
@@ -215,8 +259,20 @@ app.post('/api/auth/register', async (req, res) => {
     }
     
     const users = await getUsers();
-    if (users.find(u => u.username === username)) return res.status(400).json({ error: '用户名已存在' });
-    if (phone && users.find(u => u.phone === phone)) return res.status(400).json({ error: '该手机号已被注册' });
+    if (users.find(u => u.username === username)) {
+      const suggestions = generateUsernameSuggestions(username, users);
+      return res.status(409).json({ 
+        error: '该用户名已被注册，建议直接登录或选择其他用户名', 
+        code: 'USERNAME_TAKEN',
+        suggestions 
+      });
+    }
+    if (phone && users.find(u => u.phone === phone)) {
+      return res.status(409).json({ 
+        error: '该手机号已注册账号，建议直接登录', 
+        code: 'PHONE_TAKEN' 
+      });
+    }
 
     const rank = await incrementRegisterCount();
     let bonusCoins = 0;

@@ -9,6 +9,12 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
+class ApiException(
+    message: String,
+    val code: String? = null,
+    val suggestions: List<String>? = null
+) : Exception(message)
+
 object RetrofitClient {
 
     private const val BASE_URL = "https://wenshu-server.onrender.com/api/"
@@ -61,19 +67,30 @@ object RetrofitClient {
             "请求失败，请稍后重试"
         }
     }
+
+    fun parseErrorResponse(errorBody: String?): ApiError? {
+        return try {
+            if (errorBody.isNullOrBlank()) return null
+            gson.fromJson(errorBody, ApiError::class.java)
+        } catch (e: Exception) {
+            null
+        }
+    }
 }
 
 suspend fun <T> safeApiCall(call: suspend () -> T): Result<T> {
     return try {
         Result.success(call())
     } catch (e: retrofit2.HttpException) {
-        val errorMsg = RetrofitClient.parseError(e.response()?.errorBody()?.string())
-        Result.failure(Exception(errorMsg))
+        val errorBody = e.response()?.errorBody()?.string()
+        val errorResponse = RetrofitClient.parseErrorResponse(errorBody)
+        val errorMsg = errorResponse?.error ?: RetrofitClient.parseError(errorBody)
+        Result.failure(ApiException(errorMsg, errorResponse?.code, errorResponse?.suggestions))
     } catch (e: java.net.SocketTimeoutException) {
-        Result.failure(Exception("连接超时，请检查网络"))
+        Result.failure(ApiException("连接超时，请检查网络"))
     } catch (e: java.net.UnknownHostException) {
-        Result.failure(Exception("网络连接失败，请检查网络设置"))
+        Result.failure(ApiException("网络连接失败，请检查网络设置"))
     } catch (e: Exception) {
-        Result.failure(Exception(e.message ?: "未知错误"))
+        Result.failure(ApiException(e.message ?: "未知错误"))
     }
 }

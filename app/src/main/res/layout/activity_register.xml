@@ -159,6 +159,33 @@
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginTop="8dp" />
 
+    <LinearLayout
+        android:id="@+id/layout_suggestions"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/tv_error"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="12dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="试试这些用户名："
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:fontFamily="serif" />
+
+        <LinearLayout
+            android:id="@+id/layout_suggestion_tags"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical" />
+    </LinearLayout>
+
     <TextView
         android:id="@+id/tv_login"
         android:layout_width="wrap_content"
@@ -168,6 +195,7 @@
         android:textSize="14sp"
         android:fontFamily="serif"
         android:padding="12dp"
+        android:background="?attr/selectableItemBackground"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
