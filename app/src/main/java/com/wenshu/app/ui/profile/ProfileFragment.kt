@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.GridLayoutManager
 import com.bumptech.glide.Glide
+import com.google.android.material.appbar.AppBarLayout
 import com.wenshu.app.R
 import com.wenshu.app.databinding.FragmentProfileBinding
 import com.wenshu.app.ui.adapters.PostGridAdapter
@@ -56,10 +57,26 @@ class ProfileFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        setupAppBar()
         setupUserInfo()
         setupTabs()
         setupGrid()
         observeData()
+    }
+
+    private fun setupAppBar() {
+        binding.appBar.addOnOffsetChangedListener(AppBarLayout.OnOffsetChangedListener { appBarLayout, verticalOffset ->
+            val totalScrollRange = appBarLayout.totalScrollRange
+            val percentage = Math.abs(verticalOffset).toFloat() / totalScrollRange.toFloat()
+            val collapsed = percentage > 0.85f
+            val titleAlpha = if (percentage > 0.6f) ((percentage - 0.6f) / 0.4f) else 0f
+            val buttonAlpha = if (percentage > 0.7f) 1f - ((percentage - 0.7f) / 0.3f) else 1f
+            binding.layoutCollapsedTitle.alpha = titleAlpha
+            binding.btnSettings.alpha = buttonAlpha
+            binding.btnShareProfile.alpha = buttonAlpha
+            binding.btnSettings.isClickable = !collapsed
+            binding.btnShareProfile.isClickable = !collapsed
+        })
     }
 
     private fun setupUserInfo() {
@@ -198,7 +215,15 @@ class ProfileFragment : Fragment() {
                     .circleCrop()
                     .into(binding.imgAvatar)
 
+                Glide.with(this)
+                    .load(ImageUtils.normalizeUrl(user.avatar))
+                    .placeholder(R.drawable.bg_avatar_placeholder)
+                    .error(R.drawable.bg_avatar_placeholder)
+                    .circleCrop()
+                    .into(binding.imgAvatarSmall)
+
                 binding.tvNickname.text = user.displayName
+                binding.tvCollapsedUsername.text = user.displayName
                 binding.tvBio.text = user.bio ?: ""
                 binding.tvFollowingCount.text = user.followingCount.toString()
                 binding.tvFollowersCount.text = user.followersCount.toString()

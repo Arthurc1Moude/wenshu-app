@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.GridLayoutManager
 import com.bumptech.glide.Glide
+import com.google.android.material.appbar.AppBarLayout
 import com.wenshu.app.R
 import com.wenshu.app.data.SharedPreferencesManager
 import com.wenshu.app.data.model.User
@@ -45,6 +46,7 @@ class UserProfileActivity : AppCompatActivity() {
 
         viewModel = ViewModelProvider(this)[ProfileViewModel::class.java]
 
+        setupAppBar()
         setupToolbar()
         setupTabs()
         setupGrid()
@@ -52,6 +54,21 @@ class UserProfileActivity : AppCompatActivity() {
         observeData()
 
         viewModel.loadUserProfile(userId!!)
+    }
+
+    private fun setupAppBar() {
+        binding.appBar.addOnOffsetChangedListener(AppBarLayout.OnOffsetChangedListener { appBarLayout, verticalOffset ->
+            val totalScrollRange = appBarLayout.totalScrollRange
+            val percentage = Math.abs(verticalOffset).toFloat() / totalScrollRange.toFloat()
+            val collapsed = percentage > 0.85f
+            val titleAlpha = if (percentage > 0.6f) ((percentage - 0.6f) / 0.4f) else 0f
+            val buttonAlpha = if (percentage > 0.7f) 1f - ((percentage - 0.7f) / 0.3f) else 1f
+            binding.layoutCollapsedTitle.alpha = titleAlpha
+            binding.btnBack.alpha = 1f
+            binding.btnShareProfile.alpha = buttonAlpha
+            binding.btnBack.isClickable = true
+            binding.btnShareProfile.isClickable = !collapsed
+        })
     }
 
     private fun setupToolbar() {
@@ -219,7 +236,15 @@ class UserProfileActivity : AppCompatActivity() {
             .circleCrop()
             .into(binding.imgAvatar)
 
+        Glide.with(this)
+            .load(ImageUtils.normalizeUrl(user.avatar))
+            .placeholder(R.drawable.bg_avatar_placeholder)
+            .error(R.drawable.bg_avatar_placeholder)
+            .circleCrop()
+            .into(binding.imgAvatarSmall)
+
         binding.tvNickname.text = user.displayName
+        binding.tvCollapsedUsername.text = user.displayName
         binding.tvBio.text = user.bio ?: ""
         binding.tvFollowingCount.text = user.followingCount.toString()
         binding.tvFollowersCount.text = user.followersCount.toString()
