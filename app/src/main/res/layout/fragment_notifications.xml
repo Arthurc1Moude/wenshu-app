@@ -6,14 +6,29 @@
     android:orientation="vertical"
     android:background="@color/background">
 
-    <TextView
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="@dimen/toolbar_height"
-        android:gravity="center"
-        android:text="@string/tab_notifications"
-        android:textColor="@color/text_primary"
-        android:textSize="@dimen/text_title"
-        android:fontFamily="sans-serif-medium" />
+        android:layout_height="@dimen/toolbar_height">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:text="@string/tab_notifications"
+            android:textColor="@color/text_primary"
+            android:textSize="@dimen/text_title"
+            android:fontFamily="sans-serif-medium" />
+
+        <ImageView
+            android:id="@+id/btn_add_chat"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_gravity="end|center_vertical"
+            android:padding="10dp"
+            android:src="@drawable/ic_chat_plus"
+            android:contentDescription="@null" />
+    </FrameLayout>
 
     <View style="@style/Divider" />
 
@@ -35,11 +50,16 @@
 
     <View style="@style/Divider" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recycler_notifications"
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:overScrollMode="never"
-        android:clipToPadding="false"
-        android:paddingBottom="@dimen/spacing_lg" />
+        android:layout_height="match_parent">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_notifications"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:overScrollMode="never"
+            android:clipToPadding="false"
+            android:paddingBottom="@dimen/spacing_lg" />
+    </FrameLayout>
 </LinearLayout>

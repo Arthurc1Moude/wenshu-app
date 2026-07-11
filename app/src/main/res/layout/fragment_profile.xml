@@ -317,6 +317,73 @@
                                 android:fontFamily="serif" />
                         </LinearLayout>
                     </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/layout_coin_sign"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/spacing_md"
+                        android:background="@drawable/bg_round_white"
+                        android:padding="@dimen/spacing_md"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🪙"
+                                android:textSize="20sp" />
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/spacing_sm"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tv_wenshu_coin"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="18sp"
+                                    android:fontFamily="serif"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="文書币"
+                                    android:textColor="@color/text_tertiary"
+                                    android:textSize="11sp"
+                                    android:fontFamily="serif" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_sign_in"
+                            style="@style/Widget.MaterialComponents.Button"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:text="每日签到"
+                            android:textSize="13sp"
+                            android:fontFamily="serif"
+                            android:paddingStart="@dimen/spacing_lg"
+                            android:paddingEnd="@dimen/spacing_lg"
+                            android:textColor="@color/on_primary"
+                            app:cornerRadius="18dp"
+                            app:backgroundTint="@color/ink"
+                            app:elevation="0dp" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <View

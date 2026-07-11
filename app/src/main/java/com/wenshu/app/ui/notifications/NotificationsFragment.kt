@@ -1,17 +1,24 @@
 package com.wenshu.app.ui.notifications
 
+import android.content.Intent
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.wenshu.app.MainActivity
 import com.wenshu.app.R
 import com.wenshu.app.databinding.FragmentNotificationsBinding
 import com.wenshu.app.ui.adapters.NotificationAdapter
+import com.wenshu.app.ui.chat.CreateGroupActivity
+import com.wenshu.app.ui.chat.FriendsActivity
+import com.wenshu.app.ui.chat.JoinGroupActivity
 
 class NotificationsFragment : Fragment() {
 
@@ -46,12 +53,32 @@ class NotificationsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
         setupSwipeRefresh()
+        setupAddButton()
         observeData()
+    }
+
+    private fun setupAddButton() {
+        binding.btnAddChat.setOnClickListener { v ->
+            val popup = PopupMenu(requireContext(), v, Gravity.END or Gravity.TOP)
+            popup.menu.add(0, 1, 0, "创建群聊")
+            popup.menu.add(0, 2, 1, "加入群聊")
+            popup.menu.add(0, 3, 2, "我的好友")
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    1 -> startActivity(Intent(requireContext(), CreateGroupActivity::class.java))
+                    2 -> startActivity(Intent(requireContext(), JoinGroupActivity::class.java))
+                    3 -> startActivity(Intent(requireContext(), FriendsActivity::class.java))
+                }
+                true
+            }
+            popup.show()
+        }
     }
 
     override fun onResume() {
         super.onResume()
         isVisibleToUser = true
+        (activity as? MainActivity)?.clearUnreadBadge()
         viewModel.refresh()
         viewModel.markAllRead()
     }

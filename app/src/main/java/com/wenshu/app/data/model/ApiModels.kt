@@ -59,12 +59,6 @@ data class FollowStatusResponse(
     val isFollowing: Boolean
 )
 
-data class SignInResponse(
-    val coins: Int,
-    val consecutiveDays: Int,
-    val totalCoins: Int
-)
-
 data class RedeemRequest(
     val code: String
 )
@@ -130,5 +124,69 @@ data class ChangePasswordRequest(
 data class SimpleResponse(
     val success: Boolean = false,
     val message: String? = null,
-    val error: String? = null
+    val error: String? = null,
+    val ok: Boolean? = null
+)
+
+data class SignInResponse(
+    val coins: Int,
+    val vipDays: Int = 0,
+    val consecutiveDays: Int,
+    val cycleDay: Int = 0,
+    val rewardDesc: String = "",
+    val totalCoins: Int,
+    val isVip: Boolean = false,
+    val vipExpiresAt: Long? = null
+)
+
+data class GroupChat(
+    val id: String,
+    val groupNumber: String,
+    val name: String,
+    val avatar: String? = null,
+    val ownerId: String,
+    val joinCode: String = "",
+    val joinCodeExpiresAt: Long? = null,
+    val lastMessage: String = "",
+    val lastMessageTime: Long = 0,
+    val memberCount: Int = 1,
+    val role: String = "member",
+    val isOwner: Boolean = false,
+    val membersPreview: List<User> = emptyList(),
+    val alreadyJoined: Boolean = false,
+    val joined: Boolean = false,
+    val createdAt: Long = 0
+)
+
+data class GroupMember(
+    val userId: String,
+    val role: String,
+    val username: String,
+    val avatar: String? = null,
+    val isVip: Boolean = false
+)
+
+data class CreateGroupRequest(
+    val name: String,
+    val memberIds: List<String> = emptyList()
+)
+
+data class JoinGroupRequest(
+    val code: String? = null,
+    val groupNumber: String? = null
+)
+
+data class RenameGroupRequest(
+    val name: String
+)
+
+data class AdminBanRequest(
+    val duration: Long? = null,
+    val reason: String? = null
+)
+
+data class AdminRewardRequest(
+    val coins: Int? = null,
+    val vipDays: Int? = null,
+    val reason: String? = null
 )

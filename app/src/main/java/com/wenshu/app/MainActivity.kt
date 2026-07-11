@@ -1,271 +1,228 @@
 package com.wenshu.app
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ObjectAnimator
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
+import android.os.Handler
+import android.os.Looper
+import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
+import androidx.core.animation.doOnEnd
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
 import com.google.android.material.badge.BadgeDrawable
-import com.wenshu.app.data.SharedPreferencesManager
+import com.google.android.material.badge.BadgeUtils
+import com.wenshu.app.data.repository.ChatRepository
 import com.wenshu.app.data.repository.PostRepository
+import com.wenshu.app.data.repository.UserRepository
 import com.wenshu.app.databinding.ActivityMainBinding
-import com.wenshu.app.ui.auth.LoginActivity
+import com.wenshu.app.ui.addpost.AddPostActivity
+import com.wenshu.app.ui.chat.ChatActivity
 import com.wenshu.app.ui.discover.DiscoverFragment
 import com.wenshu.app.ui.home.HomeFragment
 import com.wenshu.app.ui.notifications.NotificationsFragment
-import com.wenshu.app.ui.postdetail.PostDetailActivity
 import com.wenshu.app.ui.profile.ProfileFragment
-import com.wenshu.app.ui.publish.PublishFragment
-import androidx.lifecycle.lifecycleScope
+import com.wenshu.app.util.ImageUtils
+import com.wenshu.app.util.PreferenceManager
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    
-    private var homeFragment: HomeFragment? = null
-    private var discoverFragment: DiscoverFragment? = null
-    private var publishFragment: PublishFragment? = null
-    private var notificationsFragment: NotificationsFragment? = null
-    private var profileFragment: ProfileFragment? = null
-    
-    private var currentFragment: Fragment? = null
+    private lateinit var pref: PreferenceManager
+    private val chatRepo = ChatRepository.getInstance()
+    private val postRepo = PostRepository.getInstance()
+    private val userRepo = UserRepository.getInstance()
+    private val handler = Handler(Looper.getMainLooper())
     private var unreadBadge: BadgeDrawable? = null
-    private val repository = PostRepository.getInstance()
+    private var lastNotifCount = 0
+
+    private val pollRunnable = object : Runnable {
+        override fun run() {
+            pollUnread()
+            handler.postDelayed(this, 5000)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d("MainActivity", "onCreate started")
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        if (!SharedPreferencesManager.isLoggedIn()) {
-            Log.d("MainActivity", "User not logged in, navigating to login")
-            navigateToLogin()
+        pref = PreferenceManager(this)
+
+        if (!pref.isLoggedIn()) {
+            startActivity(Intent(this, com.wenshu.app.ui.auth.LoginActivity::class.java))
+            finish()
             return
         }
 
-        try {
-            binding = ActivityMainBinding.inflate(layoutInflater)
-            setContentView(binding.root)
-            Log.d("MainActivity", "Content view set successfully")
-
-            restoreFragments(savedInstanceState)
-            setupBottomNavigation()
-            
-            if (savedInstanceState == null) {
-                binding.bottomNav.selectedItemId = R.id.nav_home
-                Log.d("MainActivity", "Initial navigation to HomeFragment")
-            } else {
-                val tag = savedInstanceState.getString("current_fragment_tag", "home")
-                val navId = tagToNavId(tag)
-                binding.bottomNav.selectedItemId = navId
-            }
-
-            observeUnreadCount()
-            
-            lifecycleScope.launch {
-                try {
-                    repository.loadNotifications()
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to load notifications", e)
-                }
-            }
-            
-            Log.d("MainActivity", "onCreate completed successfully")
-        } catch (e: Exception) {
-            Log.e("MainActivity", "FATAL ERROR in onCreate", e)
-            throw e
+        val userId = pref.getUserId() ?: ""
+        chatRepo.setCurrentUserId(userId)
+        lifecycleScope.launch {
+            postRepo.refreshCurrentUser()
         }
+        if (savedInstanceState == null) {
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, HomeFragment())
+                .commit()
+        }
+
+        setupBottomNav()
+        setupFab()
+        setupNotificationPopup()
+
+        handler.postDelayed(pollRunnable, 1000)
     }
 
-    private fun restoreFragments(savedInstanceState: Bundle?) {
-        if (savedInstanceState != null) {
-            homeFragment = supportFragmentManager.findFragmentByTag("home") as? HomeFragment
-            discoverFragment = supportFragmentManager.findFragmentByTag("discover") as? DiscoverFragment
-            publishFragment = supportFragmentManager.findFragmentByTag("publish") as? PublishFragment
-            notificationsFragment = supportFragmentManager.findFragmentByTag("notifications") as? NotificationsFragment
-            profileFragment = supportFragmentManager.findFragmentByTag("profile") as? ProfileFragment
-            val currentTag = savedInstanceState.getString("current_fragment_tag", "home")
-            currentFragment = supportFragmentManager.findFragmentByTag(currentTag)
-            Log.d("MainActivity", "Restored fragments from saved state, current: $currentTag")
-        }
-    }
-
-    private fun tagToNavId(tag: String): Int {
-        return when (tag) {
-            "home" -> R.id.nav_home
-            "discover" -> R.id.nav_discover
-            "publish" -> R.id.nav_publish
-            "notifications" -> R.id.nav_notifications
-            "profile" -> R.id.nav_profile
-            else -> R.id.nav_home
-        }
-    }
-
-    private fun navIdToTag(navId: Int): String {
-        return when (navId) {
-            R.id.nav_home -> "home"
-            R.id.nav_discover -> "discover"
-            R.id.nav_publish -> "publish"
-            R.id.nav_notifications -> "notifications"
-            R.id.nav_profile -> "profile"
-            else -> "home"
-        }
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        val tag = when (currentFragment) {
-            is HomeFragment -> "home"
-            is DiscoverFragment -> "discover"
-            is PublishFragment -> "publish"
-            is NotificationsFragment -> "notifications"
-            is ProfileFragment -> "profile"
-            else -> "home"
-        }
-        outState.putString("current_fragment_tag", tag)
-    }
-
-    private fun setupBottomNavigation() {
-        Log.d("MainActivity", "Setting up bottom navigation")
+    private fun setupBottomNav() {
         binding.bottomNav.setOnItemSelectedListener { item ->
-            Log.d("MainActivity", "Bottom nav item selected: ${item.itemId}")
-            val fragment = when (item.itemId) {
-                R.id.nav_home -> {
-                    if (homeFragment == null) homeFragment = HomeFragment()
-                    homeFragment!!
-                }
-                R.id.nav_discover -> {
-                    if (discoverFragment == null) discoverFragment = DiscoverFragment()
-                    discoverFragment!!
-                }
-                R.id.nav_publish -> {
-                    if (publishFragment == null) publishFragment = PublishFragment()
-                    publishFragment!!
-                }
-                R.id.nav_notifications -> {
-                    if (notificationsFragment == null) notificationsFragment = NotificationsFragment()
-                    notificationsFragment!!
-                }
-                R.id.nav_profile -> {
-                    if (profileFragment == null) profileFragment = ProfileFragment()
-                    profileFragment!!
-                }
-                else -> {
-                    Log.e("MainActivity", "Unknown nav item: ${item.itemId}")
-                    return@setOnItemSelectedListener false
-                }
+            val fragment: Fragment = when (item.itemId) {
+                R.id.nav_home -> HomeFragment()
+                R.id.nav_discover -> DiscoverFragment()
+                R.id.nav_add -> return@setOnItemSelectedListener false
+                R.id.nav_notifications -> NotificationsFragment()
+                R.id.nav_profile -> ProfileFragment()
+                else -> HomeFragment()
             }
-            switchFragment(fragment, navIdToTag(item.itemId))
+            supportFragmentManager.beginTransaction()
+                .setCustomAnimations(R.anim.fade_in, R.anim.fade_out)
+                .replace(R.id.fragment_container, fragment)
+                .commit()
             true
         }
-
-        binding.bottomNav.setOnItemReselectedListener { 
-            Log.d("MainActivity", "Bottom nav item reselected: ${it.itemId}")
-        }
-
-        unreadBadge = binding.bottomNav.getOrCreateBadge(R.id.nav_notifications)
-        unreadBadge?.backgroundColor = ContextCompat.getColor(this, R.color.seal)
-        unreadBadge?.badgeTextColor = ContextCompat.getColor(this, android.R.color.white)
-        unreadBadge?.isVisible = false
+        binding.bottomNav.menu.findItem(R.id.nav_add).isEnabled = false
     }
 
-    private fun observeUnreadCount() {
-        repository.unreadCount.observe(this) { count ->
-            Log.d("MainActivity", "Unread count updated: $count")
-            if (count != null && count > 0) {
-                unreadBadge?.number = count
-                unreadBadge?.isVisible = true
-            } else {
-                unreadBadge?.isVisible = false
-            }
+    private fun setupFab() {
+        binding.fabAddPost.setOnClickListener {
+            startActivity(Intent(this, AddPostActivity::class.java))
         }
     }
 
-    private fun switchFragment(fragment: Fragment, tag: String) {
-        try {
-            Log.d("MainActivity", "switchFragment: $tag")
+    private fun setupNotificationPopup() {
+        binding.notificationPopup.setOnClickListener {
+            hideNotificationPopup()
+            binding.bottomNav.selectedItemId = R.id.nav_notifications
+        }
+    }
 
-            val transaction = supportFragmentManager.beginTransaction()
+    fun showNotificationPopup(text: String) {
+        runOnUiThread {
+            binding.notifText.text = text
+            binding.notificationPopup.visibility = View.VISIBLE
+            val displayMetrics = resources.displayMetrics
+            val statusBarHeight = getStatusBarHeight()
+            binding.notificationPopup.setPadding(
+                binding.notificationPopup.paddingLeft,
+                statusBarHeight + resources.getDimensionPixelSize(R.dimen.spacing_sm),
+                binding.notificationPopup.paddingRight,
+                resources.getDimensionPixelSize(R.dimen.spacing_sm)
+            )
+            val slideDown = ObjectAnimator.ofFloat(binding.notificationPopup, "translationY",
+                -binding.notificationPopup.height.toFloat() - statusBarHeight, 0f)
+            slideDown.duration = 400
+            slideDown.interpolator = AccelerateDecelerateInterpolator()
+            slideDown.start()
 
-            currentFragment?.let {
-                if (it !== fragment) {
-                    transaction.hide(it)
-                    Log.d("MainActivity", "Hiding current fragment: ${it.javaClass.simpleName}")
-                }
+            val blinkAnim = ObjectAnimator.ofFloat(binding.notifDot, "alpha", 1f, 0.2f, 1f, 0.2f, 1f, 0.2f, 1f)
+            blinkAnim.duration = 1200
+            blinkAnim.start()
+
+            handler.removeCallbacks(hidePopupRunnable)
+            handler.postDelayed(hidePopupRunnable, 4500)
+        }
+    }
+
+    private val hidePopupRunnable = Runnable { hideNotificationPopup() }
+
+    private fun hideNotificationPopup() {
+        if (binding.notificationPopup.visibility != View.VISIBLE) return
+        val slideUp = ObjectAnimator.ofFloat(binding.notificationPopup, "translationY",
+            0f, -binding.notificationPopup.height.toFloat() - getStatusBarHeight())
+        slideUp.duration = 350
+        slideUp.interpolator = AccelerateDecelerateInterpolator()
+        slideUp.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                binding.notificationPopup.visibility = View.GONE
+                binding.notificationPopup.translationY = 0f
             }
+        })
+        slideUp.start()
+    }
 
-            val existingFragment = supportFragmentManager.findFragmentByTag(tag)
-            if (existingFragment != null) {
-                if (existingFragment !== fragment) {
-                    Log.w("MainActivity", "Fragment exists but is different instance! Using existing.")
-                    transaction.show(existingFragment)
-                    currentFragment = existingFragment
-                    updateFragmentReference(tag, existingFragment)
-                } else {
-                    transaction.show(fragment)
-                    currentFragment = fragment
-                }
-                Log.d("MainActivity", "Showing existing fragment")
-            } else {
-                transaction.add(R.id.fragment_container, fragment, tag)
-                currentFragment = fragment
-                Log.d("MainActivity", "Adding new fragment: ${fragment.javaClass.simpleName}")
-            }
+    private fun getStatusBarHeight(): Int {
+        var result = 0
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        if (resourceId > 0) result = resources.getDimensionPixelSize(resourceId)
+        return result
+    }
 
-            transaction.commitAllowingStateLoss()
-            Log.d("MainActivity", "Fragment transaction committed for $tag")
-
-            if (tag == "home") {
-                (currentFragment as? HomeFragment)?.refreshPosts()
-            } else if (tag == "notifications") {
-                lifecycleScope.launch {
-                    try {
-                        repository.loadNotifications()
-                        repository.markNotificationsRead()
-                    } catch (e: Exception) {
-                        Log.e("MainActivity", "Failed to refresh notifications", e)
+    private fun pollUnread() {
+        lifecycleScope.launch {
+            try {
+                val result = chatRepo.getUnreadConversations()
+                result.onSuccess { unread ->
+                    runOnUiThread {
+                        if (unread > 0) {
+                            showBadge(unread)
+                            if (unread > lastNotifCount && lastNotifCount >= 0) {
+                                showNotificationPopup("你有 $unread 条未读消息")
+                            }
+                        } else {
+                            hideBadge()
+                        }
+                        lastNotifCount = unread
                     }
                 }
-            }
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error switching fragment", e)
+            } catch (_: Exception) {}
         }
     }
 
-    private fun updateFragmentReference(tag: String, fragment: Fragment) {
-        when (tag) {
-            "home" -> homeFragment = fragment as? HomeFragment
-            "discover" -> discoverFragment = fragment as? DiscoverFragment
-            "publish" -> publishFragment = fragment as? PublishFragment
-            "notifications" -> notificationsFragment = fragment as? NotificationsFragment
-            "profile" -> profileFragment = fragment as? ProfileFragment
+    private fun showBadge(count: Int) {
+        val menuItemView = binding.bottomNav.findViewById<View>(R.id.nav_notifications)
+        if (unreadBadge == null) {
+            unreadBadge = BadgeDrawable.create(this)
+            unreadBadge!!.backgroundColor = getColor(R.color.liked)
+            unreadBadge!!.badgeTextColor = getColor(R.color.on_primary)
         }
+        unreadBadge!!.number = count
+        unreadBadge!!.isVisible = true
+        BadgeUtils.attachBadgeDrawable(unreadBadge!!, binding.bottomNav, R.id.nav_notifications)
     }
 
-    fun navigateToPostDetail(postId: String) {
-        val intent = Intent(this, PostDetailActivity::class.java)
-        intent.putExtra("post_id", postId)
-        startActivity(intent)
+    private fun hideBadge() {
+        unreadBadge?.isVisible = false
+        lastNotifCount = 0
     }
 
-    fun selectTab(tabId: Int) {
-        binding.bottomNav.selectedItemId = tabId
+    fun clearUnreadBadge() {
+        hideBadge()
     }
 
-    fun onPostPublished() {
-        binding.bottomNav.selectedItemId = R.id.nav_home
+    fun loadAvatarWithGlide(view: ImageView, avatarUrl: String?, username: String) {
+        val url = if (!avatarUrl.isNullOrBlank()) avatarUrl else ImageUtils.getAvatarUrl(username)
+        Glide.with(this)
+            .load(url)
+            .placeholder(R.drawable.default_avatar)
+            .error(R.drawable.default_avatar)
+            .circleCrop()
+            .into(view)
     }
 
-    fun logout() {
-        SharedPreferencesManager.logout()
-        navigateToLogin()
+    override fun onDestroy() {
+        super.onDestroy()
+        handler.removeCallbacks(pollRunnable)
+        handler.removeCallbacks(hidePopupRunnable)
     }
 
-    private fun navigateToLogin() {
-        val intent = Intent(this, LoginActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        finish()
+    override fun onResume() {
+        super.onResume()
+        pollUnread()
     }
 }

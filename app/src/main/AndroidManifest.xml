@@ -108,5 +108,25 @@
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
             android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.settings.SignInActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.chat.CreateGroupActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.chat.JoinGroupActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.chat.FriendsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
     </application>
 </manifest>

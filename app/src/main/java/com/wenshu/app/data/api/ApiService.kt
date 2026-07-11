@@ -109,4 +109,40 @@ interface ApiService {
 
     @GET("health")
     suspend fun healthCheck(): Map<String, Any>
+
+    @POST("groups")
+    suspend fun createGroup(@Body request: CreateGroupRequest): GroupChat
+
+    @GET("groups/mine")
+    suspend fun getMyGroups(): List<GroupChat>
+
+    @POST("groups/join")
+    suspend fun joinGroup(@Body request: JoinGroupRequest): GroupChat
+
+    @POST("groups/{id}/refresh-code")
+    suspend fun refreshGroupCode(@Path("id") groupId: String): Map<String, Any>
+
+    @POST("groups/{id}/rename")
+    suspend fun renameGroup(@Path("id") groupId: String, @Body request: RenameGroupRequest): Map<String, Any>
+
+    @GET("groups/{id}/members")
+    suspend fun getGroupMembers(@Path("id") groupId: String): List<GroupMember>
+
+    @POST("groups/{id}/leave")
+    suspend fun leaveGroup(@Path("id") groupId: String): SimpleResponse
+
+    @GET("friends")
+    suspend fun getFriends(): List<User>
+
+    @POST("admin/ban/{userId}")
+    suspend fun adminBanUser(@Path("userId") userId: String, @Body request: AdminBanRequest): SimpleResponse
+
+    @POST("admin/unban/{userId}")
+    suspend fun adminUnbanUser(@Path("userId") userId: String): SimpleResponse
+
+    @POST("admin/reward/{userId}")
+    suspend fun adminRewardUser(@Path("userId") userId: String, @Body request: AdminRewardRequest): SimpleResponse
+
+    @GET("admin/users")
+    suspend fun adminListUsers(@Query("search") search: String? = null): List<User>
 }

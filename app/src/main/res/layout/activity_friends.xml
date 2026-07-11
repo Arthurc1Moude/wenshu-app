@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:orientation="vertical">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="@dimen/status_bar_height">
+
+        <ImageView
+            android:id="@+id/btn_back"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_gravity="start|center_vertical"
+            android:padding="10dp"
+            android:src="@drawable/ic_arrow_back"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:text="我的好友"
+            android:textColor="@color/text_primary"
+            android:textSize="17sp"
+            android:fontFamily="serif" />
+    </FrameLayout>
+
+    <View style="@style/Divider" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_friends"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:overScrollMode="never"
+        android:clipToPadding="false"
+        android:paddingTop="@dimen/spacing_md"
+        android:paddingBottom="@dimen/spacing_lg" />
+
+    <TextView
+        android:id="@+id/tv_empty"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:text="暂无互关好友\n互相关注后即可成为好友开始1v1聊天"
+        android:textColor="@color/text_tertiary"
+        android:textSize="14sp"
+        android:lineSpacingExtra="8dp"
+        android:fontFamily="serif"
+        android:visibility="gone" />
+</LinearLayout>

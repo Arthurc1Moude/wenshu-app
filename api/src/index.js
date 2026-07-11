@@ -23,7 +23,10 @@ import {
   getRegisterCount, incrementRegisterCount,
   seedInitialData,
   saveVerificationCode, findValidVerificationCode, markVerificationCodeUsed,
-  findUserByPhone
+  findUserByPhone,
+  getCommentLikes, addCommentLike, removeCommentLike, isCommentLikedByUser, getCommentLikeCount,
+  getGroupChats, getGroupChatById, getGroupChatByNumber, saveGroupChat,
+  getGroupMembers, getUserGroups, addGroupMember, removeGroupMember, isGroupMember, generateGroupNumber
 } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -70,7 +73,35 @@ function getUserId(req) {
 function getUserPublic(user) {
   if (!user) return null;
   const { password, ...safe } = user;
+  if (safe.isBanned && safe.banUntil && safe.banUntil < Date.now()) {
+    return { ...safe, isBanned: false, banUntil: null, banReason: null };
+  }
   return safe;
+}
+
+async function checkBanned(userId) {
+  if (!userId) return null;
+  const users = await getUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user) return { banned: true, reason: '用户不存在' };
+  if (user.isBanned) {
+    if (user.banUntil && user.banUntil < Date.now()) {
+      user.isBanned = false;
+      user.banUntil = null;
+      user.banReason = null;
+      await saveUser(user);
+      return null;
+    }
+    return { banned: true, reason: user.banReason || '账号已被封禁' };
+  }
+  return null;
+}
+
+function generateJoinCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
 }
 
 async function isBlocked(userId1, userId2) {
@@ -414,6 +445,8 @@ app.post('/api/coin/signin', async (req, res) => {
   try {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: '未登录' });
+    const banCheck = await checkBanned(userId);
+    if (banCheck) return res.status(403).json({ error: banCheck.reason });
     const users = await getUsers();
     const user = users.find(u => u.id === userId);
     if (!user) return res.status(401).json({ error: '未登录' });
@@ -431,20 +464,63 @@ app.post('/api/coin/signin', async (req, res) => {
       user.consecutiveSignDays = 1;
     }
 
-    const baseCoins = 10;
-    const bonusCoins = Math.min((user.consecutiveSignDays - 1) * 5, 40);
-    const vipBonus = user.isVip ? 10 : 0;
-    const totalCoins = baseCoins + bonusCoins + vipBonus;
+    const cycleDay = ((user.consecutiveSignDays - 1) % 7) + 1;
+    let coinsReward = 0;
+    let vipDays = 0;
+    let rewardDesc = '';
+    const randomGifts = [
+      { coins: 30, desc: '30文书币' },
+      { coins: 50, desc: '50文书币' },
+      { coins: 40, desc: '40文书币' },
+      { coins: 88, desc: '88文书币（好运奖励）' },
+      { coins: 66, desc: '66文书币（六六大顺）' },
+    ];
+    switch (cycleDay) {
+      case 1: coinsReward = 10; rewardDesc = '10文书币'; break;
+      case 2: coinsReward = 20; rewardDesc = '20文书币'; break;
+      case 3:
+      case 4:
+      case 5:
+      case 6: {
+        const gift = randomGifts[Math.floor(Math.random() * randomGifts.length)];
+        coinsReward = gift.coins;
+        rewardDesc = gift.desc;
+        break;
+      }
+      case 7:
+        coinsReward = 50;
+        vipDays = 7;
+        rewardDesc = '50文书币 + 7天免费VIP体验';
+        if (user.isVip) {
+          user.vipExpiresAt = (user.vipExpiresAt || Date.now()) + vipDays * 86400000;
+        } else {
+          user.isVip = true;
+          user.vipLevel = 1;
+          user.vipExp = 0;
+          user.vipExpiresAt = Date.now() + vipDays * 86400000;
+        }
+        user.consecutiveSignDays = 0;
+        break;
+    }
 
-    user.wenshuCoin += totalCoins;
+    user.wenshuCoin = (user.wenshuCoin || 0) + coinsReward;
     user.lastSignInDate = today;
     user.isSignedInToday = true;
     await saveUser(user);
 
     await addVipExp(userId, 10);
-    await createNotification(user.id, 'system', `每日签到成功！获得${totalCoins}文书币（连续${user.consecutiveSignDays}天）`, null, null);
+    await createNotification(user.id, 'signin', `签到成功（第${cycleDay}天）！获得${rewardDesc}`, null, null);
 
-    res.json({ coins: totalCoins, consecutiveDays: user.consecutiveSignDays, totalCoins: user.wenshuCoin });
+    res.json({
+      coins: coinsReward,
+      vipDays,
+      consecutiveDays: user.consecutiveSignDays,
+      cycleDay,
+      rewardDesc,
+      totalCoins: user.wenshuCoin,
+      isVip: user.isVip,
+      vipExpiresAt: user.vipExpiresAt
+    });
   } catch (e) {
     console.error('Sign in error:', e);
     res.status(500).json({ error: '服务器错误' });
@@ -743,18 +819,24 @@ app.post('/api/posts/:id/collect', async (req, res) => {
 // ========== COMMENTS ==========
 app.get('/api/posts/:id/comments', async (req, res) => {
   try {
+    const currentUserId = getUserId(req);
     const comments = await getComments();
     const users = await getUsers();
     const postComments = comments.filter(c => c.postId === req.params.id).sort((a, b) => a.createdAt - b.createdAt);
-    const result = postComments.map(c => {
+    const result = [];
+    for (const c of postComments) {
       const author = users.find(u => u.id === c.authorId);
       const replyToUser = c.replyToId ? users.find(u => u.id === c.replyToId) : null;
-      return {
+      const isLiked = currentUserId ? await isCommentLikedByUser(c.id, currentUserId) : false;
+      const likeCount = await getCommentLikeCount(c.id);
+      result.push({
         ...c,
+        likeCount,
+        isLiked,
         author: author ? getUserPublic(author) : null,
         replyToUser: replyToUser ? { id: replyToUser.id, username: replyToUser.username } : null
-      };
-    });
+      });
+    }
     res.json(result);
   } catch (e) {
     console.error('Get comments error:', e);
@@ -807,6 +889,39 @@ app.post('/api/posts/:id/comments', async (req, res) => {
     });
   } catch (e) {
     console.error('Create comment error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+app.post('/api/comments/:id/like', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    const banCheck = await checkBanned(userId);
+    if (banCheck) return res.status(403).json({ error: banCheck.reason });
+    const comments = await getComments();
+    const idx = comments.findIndex(c => c.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '评论不存在' });
+    const comment = comments[idx];
+    const alreadyLiked = await isCommentLikedByUser(comment.id, userId);
+    let isLiked = false;
+    if (alreadyLiked) {
+      await removeCommentLike(comment.id, userId);
+      comment.likeCount = Math.max(0, (comment.likeCount || 0) - 1);
+    } else {
+      await addCommentLike({ id: genId('clike'), commentId: comment.id, userId, createdAt: Date.now() });
+      comment.likeCount = (comment.likeCount || 0) + 1;
+      isLiked = true;
+      if (comment.authorId !== userId) {
+        await createNotification(comment.authorId, 'comment_like', '赞了你的评论', userId, comment.postId);
+      }
+      await addVipExp(userId, 1);
+    }
+    await saveComment(comment);
+    const likeCount = await getCommentLikeCount(comment.id);
+    res.json({ likeCount, isLiked });
+  } catch (e) {
+    console.error('Comment like error:', e);
     res.status(500).json({ error: '服务器错误' });
   }
 });
@@ -1321,18 +1436,49 @@ app.get('/api/search', async (req, res) => {
   try {
     const { q } = req.query;
     const currentUserId = getUserId(req);
-    if (!q) return res.json({ posts: [], users: [] });
+    if (!q || !q.trim()) return res.json({ posts: [], users: [] });
+    const query = q.trim();
+    const queryLower = query.toLowerCase();
+    const keywords = queryLower.split(/\s+/).filter(k => k.length > 0);
+
+    function textMatches(text) {
+      if (!text) return false;
+      const t = text.toLowerCase();
+      if (keywords.length === 0) return t.includes(queryLower);
+      return keywords.every(kw => t.includes(kw));
+    }
+
     const posts = await getPosts();
     const users = await getUsers();
     const likes = await getLikes();
     const collects = await getCollects();
-    const matchedPosts = posts.filter(p => p.content.includes(q) || p.tags.some(t => t.includes(q))).slice(0, 30);
-    const matchedUsers = users.filter(u => u.username.includes(q)).slice(0, 20).map(u => getUserPublic(u));
+    const comments = await getComments();
+
+    const postIdsWithComments = new Set();
+    for (const c of comments) {
+      if (textMatches(c.content)) {
+        postIdsWithComments.add(c.postId);
+      }
+    }
+
+    const matchedPosts = posts.filter(p => {
+      if (textMatches(p.content)) return true;
+      if (p.tags && p.tags.some(t => textMatches(t) || textMatches('#' + t))) return true;
+      if (postIdsWithComments.has(p.id)) return true;
+      return false;
+    }).slice(0, 50);
+
+    const matchedUsers = users.filter(u => {
+      if (textMatches(u.username)) return true;
+      if (textMatches(u.bio)) return true;
+      return false;
+    }).slice(0, 30).map(u => getUserPublic(u));
+
     const postsWithAuthor = matchedPosts.map(p => decoratePost(p, currentUserId, users, likes, collects));
     res.json({ posts: postsWithAuthor, users: matchedUsers });
   } catch (e) {
     console.error('Search error:', e);
-    res.status(500).json({ error: '服务器错误' });
+    res.status(500).json({ error: '服务器错误', posts: [], users: [] });
   }
 });
 
@@ -1340,6 +1486,343 @@ app.get('/api/search', async (req, res) => {
 app.post('/api/upload', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '上传失败' });
   res.json({ url: `/uploads/${req.file.filename}` });
+});
+
+// ========== ADMIN ==========
+async function requireAdmin(userId) {
+  if (!userId) return { error: '未登录', status: 401 };
+  const users = await getUsers();
+  const admin = users.find(u => u.id === userId);
+  if (!admin || !admin.isAdmin) return { error: '需要管理员权限', status: 403 };
+  return { admin };
+}
+
+app.post('/api/admin/ban/:userId', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const adminCheck = await requireAdmin(userId);
+    if (adminCheck.error) return res.status(adminCheck.status).json({ error: adminCheck.error });
+    const targetId = req.params.userId;
+    const { duration, reason } = req.body;
+    const users = await getUsers();
+    const target = users.find(u => u.id === targetId);
+    if (!target) return res.status(404).json({ error: '用户不存在' });
+    if (target.isAdmin) return res.status(400).json({ error: '不能封禁管理员' });
+    target.isBanned = true;
+    target.banReason = reason || '违反社区规则';
+    target.banUntil = duration ? Date.now() + duration : null;
+    await saveUser(target);
+    const banDurationStr = duration ? `（${Math.round(duration / 86400000)}天）` : '（永久）';
+    await createNotification(targetId, 'system', `你的账号已被封禁${banDurationStr}，原因：${target.banReason}`, null, null);
+    res.json({ ok: true, user: getUserPublic(target) });
+  } catch (e) {
+    console.error('Ban user error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+app.post('/api/admin/unban/:userId', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const adminCheck = await requireAdmin(userId);
+    if (adminCheck.error) return res.status(adminCheck.status).json({ error: adminCheck.error });
+    const targetId = req.params.userId;
+    const users = await getUsers();
+    const target = users.find(u => u.id === targetId);
+    if (!target) return res.status(404).json({ error: '用户不存在' });
+    target.isBanned = false;
+    target.banUntil = null;
+    target.banReason = null;
+    await saveUser(target);
+    await createNotification(targetId, 'system', '你的账号已解封，欢迎回来！', null, null);
+    res.json({ ok: true, user: getUserPublic(target) });
+  } catch (e) {
+    console.error('Unban user error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+app.post('/api/admin/reward/:userId', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const adminCheck = await requireAdmin(userId);
+    if (adminCheck.error) return res.status(adminCheck.status).json({ error: adminCheck.error });
+    const targetId = req.params.userId;
+    const { coins, vipDays, reason } = req.body;
+    const users = await getUsers();
+    const target = users.find(u => u.id === targetId);
+    if (!target) return res.status(404).json({ error: '用户不存在' });
+    const parts = [];
+    if (coins && coins > 0) {
+      target.wenshuCoin = (target.wenshuCoin || 0) + coins;
+      parts.push(`${coins}文书币`);
+    }
+    if (vipDays && vipDays > 0) {
+      if (target.isVip) {
+        target.vipExpiresAt = (target.vipExpiresAt || Date.now()) + vipDays * 86400000;
+      } else {
+        target.isVip = true;
+        target.vipLevel = 1;
+        target.vipExp = 0;
+        target.vipExpiresAt = Date.now() + vipDays * 86400000;
+      }
+      parts.push(`${vipDays}天VIP`);
+    }
+    await saveUser(target);
+    const rewardStr = parts.join('、');
+    if (rewardStr) {
+      await createNotification(targetId, 'reward', `官方奖励：获得${rewardStr}${reason ? '（' + reason + '）' : ''}`, null, null);
+    }
+    res.json({ ok: true, user: getUserPublic(target), rewarded: parts });
+  } catch (e) {
+    console.error('Reward user error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const adminCheck = await requireAdmin(userId);
+    if (adminCheck.error) return res.status(adminCheck.status).json({ error: adminCheck.error });
+    const users = await getUsers();
+    const { search } = req.query;
+    let list = users;
+    if (search) {
+      const s = search.toLowerCase();
+      list = users.filter(u => u.username.toLowerCase().includes(s) || (u.phone && u.phone.includes(s)));
+    }
+    res.json(list.slice(0, 100).map(u => getUserPublic(u)));
+  } catch (e) {
+    console.error('Admin list users error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// ========== GROUP CHATS ==========
+app.post('/api/groups', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    const banCheck = await checkBanned(userId);
+    if (banCheck) return res.status(403).json({ error: banCheck.reason });
+    const { name, memberIds } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: '群名称不能为空' });
+    const groupNumber = await generateGroupNumber();
+    const joinCode = generateJoinCode();
+    const groupId = genId('group');
+    const group = {
+      id: groupId,
+      groupNumber,
+      name: name.trim(),
+      avatar: null,
+      ownerId: userId,
+      joinCode,
+      joinCodeExpiresAt: Date.now() + 86400000,
+      lastMessage: '',
+      lastMessageTime: Date.now(),
+      memberCount: 1,
+      createdAt: Date.now()
+    };
+    await saveGroupChat(group);
+    await addGroupMember({ id: genId('gm'), groupId, userId, role: 'owner', joinedAt: Date.now() });
+    const users = await getUsers();
+    const conv = {
+      id: groupId,
+      type: 'group',
+      name: name.trim(),
+      avatar: null,
+      participantIds: [userId, ...(memberIds || [])],
+      lastMessage: '',
+      lastMessageTime: Date.now(),
+      unreadCount: 0
+    };
+    const friendIds = [];
+    for (const mid of (memberIds || [])) {
+      if (await isGroupMember(groupId, mid)) continue;
+      await addGroupMember({ id: genId('gm'), groupId, userId: mid, role: 'member', joinedAt: Date.now() });
+      friendIds.push(mid);
+      await createNotification(mid, 'group_invite', `你被邀请加入群聊「${name.trim()}」（群号：${groupNumber}）`, userId, null);
+    }
+    group.memberCount = friendIds.length + 1;
+    await saveGroupChat(group);
+    await saveConversation(conv);
+    res.json({ ...group, joinCode, role: 'owner' });
+  } catch (e) {
+    console.error('Create group error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+app.get('/api/groups/mine', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.json([]);
+    const myGroups = await getUserGroups(userId);
+    const users = await getUsers();
+    const result = [];
+    for (const g of myGroups) {
+      const members = await getGroupMembers(g.id);
+      const memberUsers = [];
+      for (const m of members.slice(0, 5)) {
+        const u = users.find(u => u.id === m.userId);
+        if (u) memberUsers.push({ id: u.id, username: u.username, avatar: u.avatar });
+      }
+      const myMember = members.find(m => m.userId === userId);
+      result.push({
+        ...g,
+        role: myMember?.role || 'member',
+        membersPreview: memberUsers,
+        isOwner: g.ownerId === userId
+      });
+    }
+    res.json(result);
+  } catch (e) {
+    console.error('Get my groups error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+app.post('/api/groups/join', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    const banCheck = await checkBanned(userId);
+    if (banCheck) return res.status(403).json({ error: banCheck.reason });
+    const { code, groupNumber } = req.body;
+    let group = null;
+    if (code) {
+      const chats = await getGroupChats();
+      group = chats.find(g => g.joinCode.toUpperCase() === code.toUpperCase() && (!g.joinCodeExpiresAt || g.joinCodeExpiresAt > Date.now()));
+      if (!group) return res.status(400).json({ error: '邀请码无效或已过期' });
+    } else if (groupNumber) {
+      group = await getGroupChatByNumber(groupNumber);
+      if (!group) return res.status(404).json({ error: '群号不存在' });
+    } else {
+      return res.status(400).json({ error: '请输入邀请码或群号' });
+    }
+    if (await isGroupMember(group.id, userId)) return res.json({ ...group, alreadyJoined: true });
+    await addGroupMember({ id: genId('gm'), groupId: group.id, userId, role: 'member', joinedAt: Date.now() });
+    group.memberCount = (group.memberCount || 1) + 1;
+    await saveGroupChat(group);
+    const convs = await getConversations();
+    let conv = convs.find(c => c.id === group.id);
+    if (conv) {
+      if (!conv.participantIds.includes(userId)) conv.participantIds.push(userId);
+      await saveConversation(conv);
+    } else {
+      await saveConversation({
+        id: group.id, type: 'group', name: group.name, avatar: group.avatar,
+        participantIds: [group.ownerId, userId], lastMessage: '', lastMessageTime: Date.now(), unreadCount: 0
+      });
+    }
+    await createNotification(group.ownerId, 'group_join', `有人加入了你的群聊「${group.name}」`, userId, null);
+    res.json({ ...group, joined: true });
+  } catch (e) {
+    console.error('Join group error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+app.post('/api/groups/:id/refresh-code', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    const group = await getGroupChatById(req.params.id);
+    if (!group) return res.status(404).json({ error: '群聊不存在' });
+    if (group.ownerId !== userId) return res.status(403).json({ error: '只有群主可以刷新邀请码' });
+    const newCode = generateJoinCode();
+    group.joinCode = newCode;
+    group.joinCodeExpiresAt = Date.now() + 86400000;
+    await saveGroupChat(group);
+    res.json({ joinCode: newCode, expiresAt: group.joinCodeExpiresAt });
+  } catch (e) {
+    console.error('Refresh join code error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+app.post('/api/groups/:id/rename', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: '群名不能为空' });
+    const group = await getGroupChatById(req.params.id);
+    if (!group) return res.status(404).json({ error: '群聊不存在' });
+    if (group.ownerId !== userId) return res.status(403).json({ error: '只有群主可以修改群名' });
+    group.name = name.trim();
+    await saveGroupChat(group);
+    const convs = await getConversations();
+    const conv = convs.find(c => c.id === group.id);
+    if (conv) {
+      conv.name = name.trim();
+      await saveConversation(conv);
+    }
+    res.json({ ok: true, name: group.name });
+  } catch (e) {
+    console.error('Rename group error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+app.get('/api/groups/:id/members', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    const group = await getGroupChatById(req.params.id);
+    if (!group) return res.status(404).json({ error: '群聊不存在' });
+    const members = await getGroupMembers(group.id);
+    const users = await getUsers();
+    const result = members.map(m => {
+      const u = users.find(u => u.id === m.userId);
+      return u ? { userId: m.userId, role: m.role, username: u.username, avatar: u.avatar, isVip: u.isVip } : null;
+    }).filter(Boolean);
+    res.json(result);
+  } catch (e) {
+    console.error('Get group members error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+app.post('/api/groups/:id/leave', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    const group = await getGroupChatById(req.params.id);
+    if (!group) return res.status(404).json({ error: '群聊不存在' });
+    if (group.ownerId === userId) return res.status(400).json({ error: '群主不能退群，请先转让群' });
+    await removeGroupMember(group.id, userId);
+    group.memberCount = Math.max(1, (group.memberCount || 1) - 1);
+    await saveGroupChat(group);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Leave group error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// ========== FRIENDS (MUTUAL FOLLOWS) ==========
+app.get('/api/friends', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.json([]);
+    const follows = await getFollows();
+    const users = await getUsers();
+    const iFollow = new Set(follows.filter(f => f.followerId === userId).map(f => f.followingId));
+    const mutualIds = follows.filter(f => f.followerId === f.followingId === false && iFollow.has(f.followerId) && f.followingId === userId).map(f => f.followerId);
+    const betterMutual = [];
+    for (const f of follows) {
+      if (f.followerId === userId && follows.some(ff => ff.followerId === f.followingId && ff.followingId === userId)) {
+        if (!betterMutual.includes(f.followingId)) betterMutual.push(f.followingId);
+      }
+    }
+    const friends = betterMutual.map(id => users.find(u => u.id === id)).filter(Boolean).map(u => getUserPublic(u));
+    res.json(friends);
+  } catch (e) {
+    console.error('Get friends error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
 });
 
 // ========== SEED POSTS (first run) ==========
@@ -1365,6 +1848,7 @@ app.post('/api/seed', async (req, res) => {
         bio: '我是机器人，分享美好生活~',
         location: '',
         wenshuCoin: 0,
+        isAdmin: name === '文书小助手',
         isVip: name === '文书小助手',
         vipLevel: name === '文书小助手' ? 10 : 0,
         vipExp: 0,
@@ -1373,6 +1857,9 @@ app.post('/api/seed', async (req, res) => {
         followersCount: 0,
         likesCount: 0,
         registerRank: 0,
+        isBanned: false,
+        banUntil: null,
+        banReason: null,
         isSignedInToday: false,
         lastSignInDate: '',
         consecutiveSignDays: 0,
@@ -1437,6 +1924,115 @@ app.get('/', (req, res) => {
 async function startServer() {
   await initDB();
   await seedInitialData();
+  const users = await getUsers();
+  const posts = await getPosts();
+  let assistantUser = users.find(u => u.username === '文书小助手');
+  if (!assistantUser) {
+    assistantUser = {
+      id: genId('bot'),
+      username: '文书小助手',
+      password: 'bot123456',
+      avatar: 'https://ui-avatars.com/api/?name=' + encodeURIComponent('文书小助手') + '&background=000000&color=fff&size=200&bold=true',
+      cover: 'https://picsum.photos/seed/bot_assistant/800/320',
+      bio: '文书APP官方助手',
+      location: '',
+      wenshuCoin: 0,
+      isAdmin: true,
+      isVip: true,
+      vipLevel: 10,
+      vipExp: 0,
+      vipExpiresAt: null,
+      followingCount: 0,
+      followersCount: 0,
+      likesCount: 0,
+      registerRank: 0,
+      isBanned: false,
+      banUntil: null,
+      banReason: null,
+      isSignedInToday: false,
+      lastSignInDate: '',
+      consecutiveSignDays: 0,
+      createdAt: Date.now(),
+      joinedQQGroup: false
+    };
+    await saveUser(assistantUser);
+  } else {
+    let changed = false;
+    if (!assistantUser.isAdmin) { assistantUser.isAdmin = true; changed = true; }
+    if (!assistantUser.isVip) { assistantUser.isVip = true; changed = true; }
+    if (changed) await saveUser(assistantUser);
+  }
+  if (posts.length === 0) {
+    const botNames = ['生活记录者', '读书爱好者', '咖啡控', '摄影小白', '跑步达人', '美食猎人'];
+    const botUsers = [assistantUser];
+    for (const name of botNames) {
+      const exists = users.find(u => u.username === name);
+      if (!exists) {
+        const bot = {
+          id: genId('bot'),
+          username: name,
+          password: 'bot123456',
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=333333&color=fff&size=200&bold=true`,
+          cover: `https://picsum.photos/seed/bot${name}/800/320`,
+          bio: '我是机器人，分享美好生活~',
+          location: '',
+          wenshuCoin: Math.floor(Math.random() * 5000),
+          isAdmin: false,
+          isVip: false,
+          vipLevel: 0,
+          vipExp: 0,
+          vipExpiresAt: null,
+          followingCount: Math.floor(Math.random() * 100),
+          followersCount: Math.floor(Math.random() * 2000),
+          likesCount: Math.floor(Math.random() * 5000),
+          registerRank: 0,
+          isBanned: false,
+          banUntil: null,
+          banReason: null,
+          isSignedInToday: false,
+          lastSignInDate: '',
+          consecutiveSignDays: Math.floor(Math.random() * 30),
+          createdAt: Date.now() - Math.floor(Math.random() * 86400000 * 30),
+          joinedQQGroup: Math.random() > 0.5
+        };
+        await saveUser(bot);
+        botUsers.push(bot);
+      } else {
+        botUsers.push(exists);
+      }
+    }
+    const seedPosts = [
+      { content: '今天天气真好，出门散步看到了很美的夕阳🌇 生活中的小确幸就是这样不期而遇～ #日常 #生活记录', images: ['https://picsum.photos/seed/p1/600/600'], tags: ['日常', '生活记录'] },
+      { content: '分享一本最近在读的书《被讨厌的勇气》，非常推荐！里面的观点颠覆了我很多固有的思维方式。#读书分享 #推荐', images: ['https://picsum.photos/seed/p2/600/800', 'https://picsum.photos/seed/p2b/600/600'], tags: ['读书分享', '推荐'] },
+      { content: '自己做的拿铁拉花，虽然不是很完美但是进步了！☕ 继续加油练习～ #咖啡 #日常打卡', images: ['https://picsum.photos/seed/p3/600/600'], tags: ['咖啡', '日常打卡'] },
+      { content: '周末去了美术馆，看到了很多喜欢的作品。艺术真的能让人静下心来。#夏日生活 #艺术', images: ['https://picsum.photos/seed/p4/800/600', 'https://picsum.photos/seed/p4b/600/600', 'https://picsum.photos/seed/p4c/600/600'], tags: ['夏日生活', '艺术'] },
+      { content: '新学会的一道菜——番茄炒蛋！看起来简单，做好吃还是需要技巧的😋 #美食 #日常', images: ['https://picsum.photos/seed/p5/600/600'], tags: ['美食', '日常'] },
+      { content: '跑步第30天打卡！从一开始跑1公里都喘到现在能轻松跑5公里，坚持真的有意义💪 #日常打卡 #运动', images: [], tags: ['日常打卡', '运动'] },
+      { content: '今天的云好美啊，像棉花糖一样☁️ 拍了好多张照片，每一张都像壁纸。#夏日生活 #摄影', images: ['https://picsum.photos/seed/p7/600/400', 'https://picsum.photos/seed/p7b/600/800'], tags: ['夏日生活', '摄影'] },
+      { content: '深夜emo时间...有时候觉得努力了很久的事情却看不到结果，但还是要相信一切都是最好的安排吧。#日常 #心情', images: [], tags: ['日常', '心情'] },
+      { content: '新买的文具到了！开箱的快乐谁懂啊✨ 这个本子的纸质超级好，写字好顺滑。#好物分享 #文具', images: ['https://picsum.photos/seed/p9/600/600', 'https://picsum.photos/seed/p9b/600/600'], tags: ['好物分享', '文具'] },
+      { content: '城市夜景永远拍不腻🌃 站在天桥上看车水马龙，感觉自己很渺小但又充满可能性。#摄影 #城市', images: ['https://picsum.photos/seed/p10/800/600'], tags: ['摄影', '城市'] },
+      { content: '夏天就是要吃西瓜🍉 冰镇西瓜配上空调，这才是夏天该有的样子！#夏日生活 #美食', images: ['https://picsum.photos/seed/p11/600/600'], tags: ['夏日生活', '美食'] },
+      { content: '今天尝试了新的妆容，感觉自己美美哒💄 女孩子要学会爱自己~ #日常 #美妆', images: ['https://picsum.photos/seed/p12/600/700'], tags: ['日常', '美妆'] },
+    ];
+    const now = Date.now();
+    for (let i = 0; i < seedPosts.length; i++) {
+      const seed = seedPosts[i];
+      const author = botUsers[Math.floor(Math.random() * botUsers.length)];
+      await savePost({
+        id: genId('post'),
+        authorId: author.id,
+        title: '',
+        content: seed.content,
+        images: seed.images,
+        tags: seed.tags,
+        likeCount: Math.floor(Math.random() * 200) + 10,
+        commentCount: Math.floor(Math.random() * 30),
+        collectCount: Math.floor(Math.random() * 50),
+        createdAt: now - i * 3600000 * (Math.random() * 4 + 1)
+      });
+    }
+  }
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 文书APP后端服务运行在 port ${PORT}`);
   });

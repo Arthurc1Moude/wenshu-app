@@ -4,7 +4,10 @@ const { Pool } = pg;
 let pool = null;
 
 export function initPostgres() {
-  if (!process.env.DATABASE_URL) return null;
+  if (!process.env.DATABASE_URL) {
+    console.warn('No DATABASE_URL found - database functions will return empty/default values. Set DATABASE_URL to connect to CockroachDB.');
+    return null;
+  }
   
   let connectionString = process.env.DATABASE_URL;
   if (connectionString.includes('sslmode=verify-full')) {
@@ -13,7 +16,7 @@ export function initPostgres() {
   
   pool = new Pool({
     connectionString,
-    ssl: process.env.DATABASE_URL.includes('cockroachlabs') || process.env.DATABASE_URL.includes('neon.tech') 
+    ssl: (process.env.DATABASE_URL.includes('cockroachlabs') || process.env.DATABASE_URL.includes('neon.tech') || process.env.DATABASE_URL.includes('render.com'))
       ? { rejectUnauthorized: false } 
       : false,
   });
@@ -50,7 +53,11 @@ export async function initTables() {
         last_sign_in_date TEXT DEFAULT '',
         consecutive_sign_days INTEGER DEFAULT 0,
         created_at BIGINT,
-        joined_qq_group BOOLEAN DEFAULT false
+        joined_qq_group BOOLEAN DEFAULT false,
+        is_admin BOOLEAN DEFAULT false,
+        is_banned BOOLEAN DEFAULT false,
+        ban_until BIGINT,
+        ban_reason TEXT
       )
     `);
 
@@ -217,6 +224,43 @@ export async function initTables() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS comment_likes (
+        id TEXT PRIMARY KEY,
+        comment_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        created_at BIGINT,
+        UNIQUE(comment_id, user_id)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS group_chats (
+        id TEXT PRIMARY KEY,
+        group_number TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        avatar TEXT,
+        owner_id TEXT NOT NULL,
+        join_code TEXT NOT NULL,
+        join_code_expires_at BIGINT,
+        last_message TEXT DEFAULT '',
+        last_message_time BIGINT,
+        member_count INTEGER DEFAULT 1,
+        created_at BIGINT
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS group_members (
+        id TEXT PRIMARY KEY,
+        group_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        role TEXT DEFAULT 'member',
+        joined_at BIGINT,
+        UNIQUE(group_id, user_id)
+      )
+    `);
+
     await client.query(`CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id)`);
@@ -232,6 +276,12 @@ export async function initTables() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_blacklists_blocked ON blacklists(blocked_user_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_verification_phone ON verification_codes(phone)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_verification_expires ON verification_codes(expires_at)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_comment_likes_comment ON comment_likes(comment_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_comment_likes_user ON comment_likes(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_group_chats_owner ON group_chats(owner_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_group_chats_number ON group_chats(group_number)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id)`);
 
     console.log('✅ PostgreSQL tables initialized');
   } finally {
@@ -264,6 +314,10 @@ function rowToUser(row) {
     consecutiveSignDays: row.consecutive_sign_days || 0,
     createdAt: row.created_at,
     joinedQQGroup: row.joined_qq_group || false,
+    isAdmin: row.is_admin || false,
+    isBanned: row.is_banned || false,
+    banUntil: row.ban_until,
+    banReason: row.ban_reason,
   };
 }
 
@@ -411,8 +465,8 @@ export async function pgGetUsers() {
 
 export async function pgSaveUser(user) {
   await pool.query(`
-    INSERT INTO users (id, username, password, phone, avatar, cover, bio, location, wenshu_coin, is_vip, vip_level, vip_exp, vip_expires_at, following_count, followers_count, likes_count, register_rank, is_signed_in_today, last_sign_in_date, consecutive_sign_days, created_at, joined_qq_group)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+    INSERT INTO users (id, username, password, phone, avatar, cover, bio, location, wenshu_coin, is_vip, vip_level, vip_exp, vip_expires_at, following_count, followers_count, likes_count, register_rank, is_signed_in_today, last_sign_in_date, consecutive_sign_days, created_at, joined_qq_group, is_admin, is_banned, ban_until, ban_reason)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
     ON CONFLICT (id) DO UPDATE SET
       username = EXCLUDED.username, password = EXCLUDED.password, phone = EXCLUDED.phone, avatar = EXCLUDED.avatar, cover = EXCLUDED.cover,
       bio = EXCLUDED.bio, location = EXCLUDED.location, wenshu_coin = EXCLUDED.wenshu_coin, is_vip = EXCLUDED.is_vip,
@@ -420,13 +474,15 @@ export async function pgSaveUser(user) {
       following_count = EXCLUDED.following_count, followers_count = EXCLUDED.followers_count, likes_count = EXCLUDED.likes_count,
       register_rank = EXCLUDED.register_rank, is_signed_in_today = EXCLUDED.is_signed_in_today,
       last_sign_in_date = EXCLUDED.last_sign_in_date, consecutive_sign_days = EXCLUDED.consecutive_sign_days,
-      joined_qq_group = EXCLUDED.joined_qq_group
+      joined_qq_group = EXCLUDED.joined_qq_group, is_admin = EXCLUDED.is_admin, is_banned = EXCLUDED.is_banned,
+      ban_until = EXCLUDED.ban_until, ban_reason = EXCLUDED.ban_reason
   `, [
     user.id, user.username, user.password, user.phone, user.avatar, user.cover, user.bio || '', user.location || '',
     user.wenshuCoin || 0, user.isVip || false, user.vipLevel || 0, user.vipExp || 0, user.vipExpiresAt,
     user.followingCount || 0, user.followersCount || 0, user.likesCount || 0, user.registerRank || 0,
     user.isSignedInToday || false, user.lastSignInDate || '', user.consecutiveSignDays || 0,
-    user.createdAt, user.joinedQQGroup || false
+    user.createdAt, user.joinedQQGroup || false, user.isAdmin || false, user.isBanned || false,
+    user.banUntil || null, user.banReason || null
   ]);
 }
 
@@ -671,6 +727,133 @@ export async function pgFindUserByPhone(phone) {
   const res = await pool.query('SELECT * FROM users WHERE phone = $1', [phone]);
   if (res.rows.length === 0) return null;
   return rowToUser(res.rows[0]);
+}
+
+function rowToCommentLike(row) {
+  if (!row) return null;
+  return { id: row.id, commentId: row.comment_id, userId: row.user_id, createdAt: row.created_at };
+}
+
+function rowToGroupChat(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    groupNumber: row.group_number,
+    name: row.name,
+    avatar: row.avatar,
+    ownerId: row.owner_id,
+    joinCode: row.join_code,
+    joinCodeExpiresAt: row.join_code_expires_at,
+    lastMessage: row.last_message || '',
+    lastMessageTime: row.last_message_time,
+    memberCount: row.member_count || 1,
+    createdAt: row.created_at
+  };
+}
+
+function rowToGroupMember(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    groupId: row.group_id,
+    userId: row.user_id,
+    role: row.role || 'member',
+    joinedAt: row.joined_at
+  };
+}
+
+export async function pgGetCommentLikes() {
+  const res = await pool.query('SELECT * FROM comment_likes');
+  return res.rows.map(rowToCommentLike);
+}
+
+export async function pgAddCommentLike(like) {
+  await pool.query(`
+    INSERT INTO comment_likes (id, comment_id, user_id, created_at)
+    VALUES ($1,$2,$3,$4) ON CONFLICT (comment_id, user_id) DO NOTHING
+  `, [like.id, like.commentId, like.userId, like.createdAt]);
+}
+
+export async function pgDeleteCommentLike(commentId, userId) {
+  await pool.query('DELETE FROM comment_likes WHERE comment_id = $1 AND user_id = $2', [commentId, userId]);
+}
+
+export async function pgGetCommentLikeCount(commentId) {
+  const res = await pool.query('SELECT COUNT(*) FROM comment_likes WHERE comment_id = $1', [commentId]);
+  return parseInt(res.rows[0].count) || 0;
+}
+
+export async function pgIsCommentLikedByUser(commentId, userId) {
+  const res = await pool.query('SELECT 1 FROM comment_likes WHERE comment_id = $1 AND user_id = $2', [commentId, userId]);
+  return res.rows.length > 0;
+}
+
+export async function pgGetGroupChats() {
+  const res = await pool.query('SELECT * FROM group_chats ORDER BY last_message_time DESC NULLS LAST');
+  return res.rows.map(rowToGroupChat);
+}
+
+export async function pgGetGroupChatById(id) {
+  const res = await pool.query('SELECT * FROM group_chats WHERE id = $1', [id]);
+  if (res.rows.length === 0) return null;
+  return rowToGroupChat(res.rows[0]);
+}
+
+export async function pgGetGroupChatByNumber(number) {
+  const res = await pool.query('SELECT * FROM group_chats WHERE group_number = $1', [number]);
+  if (res.rows.length === 0) return null;
+  return rowToGroupChat(res.rows[0]);
+}
+
+export async function pgSaveGroupChat(gc) {
+  await pool.query(`
+    INSERT INTO group_chats (id, group_number, name, avatar, owner_id, join_code, join_code_expires_at, last_message, last_message_time, member_count, created_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    ON CONFLICT (id) DO UPDATE SET
+      name = EXCLUDED.name, avatar = EXCLUDED.avatar, join_code = EXCLUDED.join_code,
+      join_code_expires_at = EXCLUDED.join_code_expires_at, last_message = EXCLUDED.last_message,
+      last_message_time = EXCLUDED.last_message_time, member_count = EXCLUDED.member_count
+  `, [gc.id, gc.groupNumber, gc.name, gc.avatar, gc.ownerId, gc.joinCode, gc.joinCodeExpiresAt,
+       gc.lastMessage || '', gc.lastMessageTime, gc.memberCount || 1, gc.createdAt]);
+}
+
+export async function pgGetGroupMembers(groupId) {
+  const res = await pool.query('SELECT * FROM group_members WHERE group_id = $1', [groupId]);
+  return res.rows.map(rowToGroupMember);
+}
+
+export async function pgGetUserGroups(userId) {
+  const res = await pool.query(`
+    SELECT gc.* FROM group_chats gc
+    JOIN group_members gm ON gc.id = gm.group_id
+    WHERE gm.user_id = $1 ORDER BY gc.last_message_time DESC NULLS LAST
+  `, [userId]);
+  return res.rows.map(rowToGroupChat);
+}
+
+export async function pgAddGroupMember(member) {
+  await pool.query(`
+    INSERT INTO group_members (id, group_id, user_id, role, joined_at)
+    VALUES ($1,$2,$3,$4,$5) ON CONFLICT (group_id, user_id) DO NOTHING
+  `, [member.id, member.groupId, member.userId, member.role || 'member', member.joinedAt]);
+}
+
+export async function pgRemoveGroupMember(groupId, userId) {
+  await pool.query('DELETE FROM group_members WHERE group_id = $1 AND user_id = $2', [groupId, userId]);
+}
+
+export async function pgIsGroupMember(groupId, userId) {
+  const res = await pool.query('SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2', [groupId, userId]);
+  return res.rows.length > 0;
+}
+
+export async function pgGenerateGroupNumber() {
+  for (let i = 0; i < 10; i++) {
+    const num = Math.floor(100000 + Math.random() * 900000).toString();
+    const existing = await pgGetGroupChatByNumber(num);
+    if (!existing) return num;
+  }
+  return Math.floor(1000000 + Math.random() * 9000000).toString();
 }
 
 export { pool };

@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:orientation="vertical">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="@dimen/status_bar_height">
+
+        <ImageView
+            android:id="@+id/btn_back"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_gravity="start|center_vertical"
+            android:padding="10dp"
+            android:src="@drawable/ic_arrow_back"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:text="每日签到"
+            android:textColor="@color/text_primary"
+            android:textSize="17sp"
+            android:fontFamily="serif" />
+    </FrameLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="@dimen/spacing_lg">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_round_white"
+                android:orientation="vertical"
+                android:padding="@dimen/spacing_lg"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🪙"
+                    android:textSize="48sp" />
+
+                <TextView
+                    android:id="@+id/tv_current_coin"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_sm"
+                    android:text="0"
+                    android:textColor="@color/text_primary"
+                    android:textSize="32sp"
+                    android:fontFamily="serif"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="当前文書币"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:fontFamily="serif" />
+
+                <TextView
+                    android:id="@+id/tv_consecutive_days"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_md"
+                    android:text="已连续签到 0 天"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp"
+                    android:fontFamily="serif" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_lg"
+                android:text="签到日历"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:fontFamily="serif"
+                android:textStyle="bold" />
+
+            <GridLayout
+                android:id="@+id/grid_sign_calendar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_md"
+                android:columnCount="4"
+                android:rowCount="2"
+                android:background="@drawable/bg_round_white"
+                android:padding="@dimen/spacing_md"
+                android:alignmentMode="alignMargins"
+                android:useDefaultMargins="true" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_sign"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="@dimen/spacing_xl"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="立即签到"
+                android:textSize="16sp"
+                android:fontFamily="serif"
+                android:textColor="@color/on_primary"
+                app:cornerRadius="24dp"
+                app:backgroundTint="@color/ink"
+                app:elevation="0dp" />
+
+            <TextView
+                android:id="@+id/tv_reward_desc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_md"
+                android:gravity="center"
+                android:text="签到7天循环领取奖励，第7天获得VIP体验"
+                android:textColor="@color/text_tertiary"
+                android:textSize="12sp"
+                android:fontFamily="serif" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

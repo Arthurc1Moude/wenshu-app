@@ -21,6 +21,7 @@ import com.wenshu.app.databinding.FragmentProfileBinding
 import com.wenshu.app.ui.adapters.PostGridAdapter
 import com.wenshu.app.ui.postdetail.PostDetailActivity
 import com.wenshu.app.ui.settings.SettingsActivity
+import com.wenshu.app.ui.settings.SignInActivity
 import com.wenshu.app.util.ImageUtils
 
 class ProfileFragment : Fragment() {
@@ -31,6 +32,14 @@ class ProfileFragment : Fragment() {
     private lateinit var gridAdapter: PostGridAdapter
     private var currentTab = "my"
     private var hasSignedInToday = false
+
+    private val signInLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.loadUserProfile()
+        }
+    }
 
     private val editProfileLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
@@ -63,6 +72,10 @@ class ProfileFragment : Fragment() {
         binding.btnEditProfile.setOnClickListener {
             val intent = Intent(requireContext(), EditProfileActivity::class.java)
             editProfileLauncher.launch(intent)
+        }
+        binding.btnSignIn.setOnClickListener {
+            val intent = Intent(requireContext(), SignInActivity::class.java)
+            signInLauncher.launch(intent)
         }
         binding.btnFollow.setOnClickListener {
             Toast.makeText(requireContext(), "关注功能", Toast.LENGTH_SHORT).show()
@@ -190,9 +203,20 @@ class ProfileFragment : Fragment() {
                 binding.tvFollowingCount.text = user.followingCount.toString()
                 binding.tvFollowersCount.text = user.followersCount.toString()
                 binding.tvLikedCount.text = user.likesCount.toString()
+                binding.tvWenshuCoin.text = user.wenshuCoin.toString()
 
                 binding.tvVipBadge.visibility = if (user.isVip) View.VISIBLE else View.GONE
                 binding.tvBio.visibility = if (user.bio.isNullOrBlank()) View.GONE else View.VISIBLE
+
+                if (user.isSignedInToday) {
+                    binding.btnSignIn.text = "今日已签"
+                    binding.btnSignIn.isEnabled = false
+                    binding.btnSignIn.alpha = 0.6f
+                } else {
+                    binding.btnSignIn.text = "每日签到"
+                    binding.btnSignIn.isEnabled = true
+                    binding.btnSignIn.alpha = 1f
+                }
 
                 if (!user.location.isNullOrBlank()) {
                     binding.layoutLocationProfile.visibility = View.VISIBLE
