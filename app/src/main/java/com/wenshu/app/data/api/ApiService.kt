@@ -145,4 +145,19 @@ interface ApiService {
 
     @GET("admin/users")
     suspend fun adminListUsers(@Query("search") search: String? = null): List<User>
+
+    @GET("conversations")
+    suspend fun getConversations(): List<Conversation>
+
+    @GET("conversations/{id}/messages")
+    suspend fun getMessages(@Path("id") conversationId: String): List<Message>
+
+    @POST("conversations/{id}/messages")
+    suspend fun sendMessage(@Path("id") conversationId: String, @Body request: SendMessageRequest): Message
+
+    @POST("conversations/private/{userId}")
+    suspend fun createPrivateConversation(@Path("userId") userId: String): Conversation
+
+    @POST("conversations/{id}/read")
+    suspend fun markConversationRead(@Path("id") conversationId: String): SimpleResponse
 }

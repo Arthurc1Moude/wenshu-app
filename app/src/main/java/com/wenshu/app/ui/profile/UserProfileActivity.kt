@@ -66,8 +66,9 @@ class UserProfileActivity : AppCompatActivity() {
         binding.btnMessage.setOnClickListener {
             val user = currentUser ?: return@setOnClickListener
             val intent = Intent(this, ChatActivity::class.java)
-            intent.putExtra("user_id", user.id)
-            intent.putExtra("username", user.username)
+            intent.putExtra("otherUserId", user.id)
+            intent.putExtra("conversationTitle", user.username)
+            intent.putExtra("conversationType", "private")
             startActivity(intent)
         }
     }

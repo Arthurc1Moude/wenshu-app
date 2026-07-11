@@ -10,15 +10,17 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.bumptech.glide.Glide
 import com.wenshu.app.R
+import com.wenshu.app.data.SharedPreferencesManager
 import com.wenshu.app.data.api.RetrofitClient
+import com.wenshu.app.data.api.safeApiCall
 import com.wenshu.app.data.model.User
 import com.wenshu.app.databinding.ActivityFriendsBinding
 import com.wenshu.app.databinding.ItemFriendBinding
 import com.wenshu.app.util.ImageUtils
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 class FriendsActivity : AppCompatActivity() {
 
@@ -35,41 +37,52 @@ class FriendsActivity : AppCompatActivity() {
         binding.recyclerFriends.layoutManager = LinearLayoutManager(this)
         binding.recyclerFriends.adapter = adapter
 
+        val swipeRefresh = SwipeRefreshLayout(this).apply {
+            setColorSchemeColors(getColor(R.color.seal))
+            setOnRefreshListener { loadFriends { isRefreshing = false } }
+        }
+        val parent = binding.recyclerFriends.parent as? ViewGroup
+        if (parent != null) {
+            val idx = parent.indexOfChild(binding.recyclerFriends)
+            parent.removeView(binding.recyclerFriends)
+            swipeRefresh.addView(binding.recyclerFriends)
+            parent.addView(swipeRefresh, idx)
+        }
+
         loadFriends()
     }
 
-    private fun loadFriends() {
+    private fun loadFriends(onComplete: (() -> Unit)? = null) {
         lifecycleScope.launch {
             try {
-                val list = RetrofitClient.apiService.getFriends()
-                if (list.isEmpty()) {
-                    binding.tvEmpty.visibility = View.VISIBLE
-                    binding.recyclerFriends.visibility = View.GONE
-                } else {
-                    binding.tvEmpty.visibility = View.GONE
-                    binding.recyclerFriends.visibility = View.VISIBLE
-                    adapter.submitList(list)
+                val result = safeApiCall { RetrofitClient.apiService.getFriends() }
+                result.onSuccess { list ->
+                    if (list.isEmpty()) {
+                        binding.tvEmpty.text = "暂无互关好友\n互相关注后即可聊天"
+                        binding.tvEmpty.visibility = View.VISIBLE
+                        binding.recyclerFriends.visibility = View.GONE
+                    } else {
+                        binding.tvEmpty.visibility = View.GONE
+                        binding.recyclerFriends.visibility = View.VISIBLE
+                        adapter.submitList(list)
+                    }
+                }.onFailure { e ->
+                    Toast.makeText(this@FriendsActivity, "加载失败: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(this@FriendsActivity, "加载失败", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@FriendsActivity, "网络错误: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+            onComplete?.invoke()
         }
     }
 
     private fun startChatWithFriend(user: User) {
-        val convId = "dm_${minOf(user.id, getCurrentUserId())}_${maxOf(user.id, getCurrentUserId())}"
         val intent = Intent(this, ChatActivity::class.java).apply {
-            putExtra("conversationId", convId)
-            putExtra("conversationTitle", user.username)
-            putExtra("conversationType", "dm")
             putExtra("otherUserId", user.id)
-            putExtra("otherUserAvatar", user.avatar)
+            putExtra("conversationTitle", user.username)
+            putExtra("conversationType", "private")
         }
         startActivity(intent)
-    }
-
-    private fun getCurrentUserId(): String {
-        return getSharedPreferences("wenshu", MODE_PRIVATE).getString("user_id", "") ?: ""
     }
 
     inner class FriendsAdapter(private val onClick: (User) -> Unit) : RecyclerView.Adapter<FriendsAdapter.VH>() {

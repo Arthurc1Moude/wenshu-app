@@ -1,33 +1,51 @@
 package com.wenshu.app.ui.chat
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.inputmethod.EditorInfo
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wenshu.app.data.SharedPreferencesManager
+import com.wenshu.app.data.api.RetrofitClient
+import com.wenshu.app.data.api.safeApiCall
 import com.wenshu.app.data.model.ChatMessage
+import com.wenshu.app.data.model.Message
+import com.wenshu.app.data.model.SendMessageRequest
 import com.wenshu.app.databinding.ActivityChatBinding
 import com.wenshu.app.ui.adapters.ChatMessageAdapter
-import java.util.UUID
+import kotlinx.coroutines.launch
 
 class ChatActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityChatBinding
     private lateinit var messageAdapter: ChatMessageAdapter
-    private var userId: String? = null
-    private var username: String? = null
+    private var conversationId: String? = null
+    private var conversationTitle: String? = null
+    private var conversationType: String = "private"
+    private var otherUserId: String? = null
     private val messages = mutableListOf<ChatMessage>()
+    private val me by lazy { SharedPreferencesManager.getUser() }
+    private val pollHandler = Handler(Looper.getMainLooper())
+    private var pollRunnable: Runnable? = null
+    private var lastMessageTime = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityChatBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        userId = intent.getStringExtra("user_id")
-        username = intent.getStringExtra("username")
+        conversationId = intent.getStringExtra("conversationId")
+        conversationTitle = intent.getStringExtra("conversationTitle")
+        conversationType = intent.getStringExtra("conversationType") ?: "private"
+        otherUserId = intent.getStringExtra("otherUserId")
 
-        if (userId == null) {
+        if (conversationId == null && otherUserId != null) {
+            createOrGetPrivateConversation()
+        } else if (conversationId == null) {
+            Toast.makeText(this, "会话信息错误", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -35,11 +53,21 @@ class ChatActivity : AppCompatActivity() {
         setupToolbar()
         setupMessages()
         setupInput()
-        loadInitialMessages()
+        loadMessages()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        startPolling()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopPolling()
     }
 
     private fun setupToolbar() {
-        binding.tvTitle.text = username ?: "聊天"
+        binding.tvTitle.text = conversationTitle ?: "聊天"
         binding.btnBack.setOnClickListener { finish() }
     }
 
@@ -65,64 +93,146 @@ class ChatActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadInitialMessages() {
-        val me = SharedPreferencesManager.getUser()
-        val welcomeMsg = ChatMessage(
-            id = UUID.randomUUID().toString(),
-            chatId = userId ?: "",
-            senderId = userId ?: "",
-            content = "你好，我是${username ?: "用户"}",
-            isMine = false,
-            senderAvatar = null,
-            senderName = username
-        )
-        messages.add(welcomeMsg)
-        updateMessages()
+    private fun createOrGetPrivateConversation() {
+        lifecycleScope.launch {
+            try {
+                val result = safeApiCall {
+                    RetrofitClient.apiService.createPrivateConversation(otherUserId!!)
+                }
+                result.onSuccess { conv ->
+                    conversationId = conv.id
+                    conversationTitle = conv.name ?: conversationTitle
+                    if (conversationTitle == null && conv.otherUser != null) {
+                        conversationTitle = conv.otherUser.username
+                    }
+                    runOnUiThread {
+                        setupToolbar()
+                        loadMessages()
+                    }
+                }.onFailure { e ->
+                    runOnUiThread {
+                        Toast.makeText(this@ChatActivity, "无法创建会话: ${e.message}", Toast.LENGTH_SHORT).show()
+                        finish()
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@ChatActivity, "网络错误", Toast.LENGTH_SHORT).show()
+                finish()
+            }
+        }
+    }
+
+    private fun loadMessages() {
+        val convId = conversationId ?: return
+        lifecycleScope.launch {
+            try {
+                val result = safeApiCall {
+                    RetrofitClient.apiService.getMessages(convId)
+                }
+                result.onSuccess { msgList ->
+                    val chatMsgs = msgList.map { it.toChatMessage(me?.id ?: "") }
+                    messages.clear()
+                    messages.addAll(chatMsgs)
+                    if (msgList.isNotEmpty()) {
+                        lastMessageTime = msgList.last().createdAt
+                    }
+                    runOnUiThread { updateMessages() }
+                    safeApiCall { RetrofitClient.apiService.markConversationRead(convId) }
+                }.onFailure { e ->
+                    runOnUiThread {
+                        Toast.makeText(this@ChatActivity, "加载消息失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this@ChatActivity, "网络错误", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     private fun sendMessage() {
         val content = binding.etMessage.text.toString().trim()
         if (content.isBlank()) return
+        val convId = conversationId ?: return
+        binding.etMessage.text?.clear()
 
-        val me = SharedPreferencesManager.getUser()
-        val message = ChatMessage(
-            id = UUID.randomUUID().toString(),
-            chatId = userId ?: "",
+        val tempMsg = ChatMessage(
+            id = "temp_${System.currentTimeMillis()}",
+            chatId = convId,
             senderId = me?.id ?: "",
             content = content,
             isMine = true,
             senderAvatar = me?.avatar,
             senderName = me?.username
         )
-        messages.add(message)
+        messages.add(tempMsg)
         updateMessages()
-        binding.etMessage.text?.clear()
-        simulateReply(content)
+
+        lifecycleScope.launch {
+            try {
+                val result = safeApiCall {
+                    RetrofitClient.apiService.sendMessage(convId, SendMessageRequest(content))
+                }
+                result.onSuccess { msg ->
+                    val idx = messages.indexOfFirst { it.id == tempMsg.id }
+                    if (idx >= 0) {
+                        messages[idx] = msg.toChatMessage(me?.id ?: "")
+                    }
+                    lastMessageTime = msg.createdAt
+                    runOnUiThread { updateMessages() }
+                }.onFailure { e ->
+                    runOnUiThread {
+                        Toast.makeText(this@ChatActivity, "发送失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                        val failIdx = messages.indexOfFirst { it.id == tempMsg.id }
+                        if (failIdx >= 0) messages.removeAt(failIdx)
+                        updateMessages()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this@ChatActivity, "发送失败", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
-    private fun simulateReply(myContent: String) {
-        binding.recyclerMessages.postDelayed({
-            val replies = listOf(
-                "好的",
-                "嗯嗯",
-                "明白了",
-                "有意思",
-                "说得对！",
-                "这个想法不错"
-            )
-            val replyContent = replies.random()
-            val reply = ChatMessage(
-                id = UUID.randomUUID().toString(),
-                chatId = userId ?: "",
-                senderId = userId ?: "",
-                content = replyContent,
-                isMine = false,
-                senderAvatar = null,
-                senderName = username
-            )
-            messages.add(reply)
-            updateMessages()
-        }, 1000)
+    private fun startPolling() {
+        stopPolling()
+        val runnable = object : Runnable {
+            override fun run() {
+                pollNewMessages()
+                pollHandler.postDelayed(this, 3000)
+            }
+        }
+        pollRunnable = runnable
+        pollHandler.postDelayed(runnable, 1500)
+    }
+
+    private fun stopPolling() {
+        pollRunnable?.let { pollHandler.removeCallbacks(it) }
+        pollRunnable = null
+    }
+
+    private fun pollNewMessages() {
+        val convId = conversationId ?: return
+        lifecycleScope.launch {
+            try {
+                val result = safeApiCall {
+                    RetrofitClient.apiService.getMessages(convId)
+                }
+                result.onSuccess { msgList ->
+                    val newMsgs = msgList.filter { it.createdAt > lastMessageTime }
+                    if (newMsgs.isNotEmpty()) {
+                        val chatMsgs = newMsgs.map { it.toChatMessage(me?.id ?: "") }
+                        messages.addAll(chatMsgs)
+                        lastMessageTime = newMsgs.last().createdAt
+                        runOnUiThread { updateMessages() }
+                        safeApiCall { RetrofitClient.apiService.markConversationRead(convId) }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     private fun updateMessages() {
@@ -133,4 +243,22 @@ class ChatActivity : AppCompatActivity() {
             }, 100)
         }
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        stopPolling()
+    }
+}
+
+fun Message.toChatMessage(myId: String): ChatMessage {
+    return ChatMessage(
+        id = this.id,
+        chatId = this.conversationId,
+        senderId = this.senderId,
+        content = this.content,
+        createdAt = this.createdAt,
+        isMine = this.senderId == myId,
+        senderAvatar = this.senderAvatar ?: this.sender?.avatar,
+        senderName = this.senderName ?: this.sender?.username
+    )
 }

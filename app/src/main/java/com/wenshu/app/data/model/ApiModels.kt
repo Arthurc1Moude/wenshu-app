@@ -190,3 +190,35 @@ data class AdminRewardRequest(
     val vipDays: Int? = null,
     val reason: String? = null
 )
+
+data class Conversation(
+    val id: String = "",
+    val type: String = "private",
+    val name: String = "",
+    val avatar: String? = null,
+    val participantIds: List<String> = emptyList(),
+    val lastMessage: String = "",
+    val lastMessageTime: Long = 0,
+    val unreadCount: Int = 0,
+    val otherUser: User? = null,
+    val isSystem: Boolean = false,
+    val groupNumber: String? = null,
+    val ownerId: String? = null,
+    val memberCount: Int = 0
+)
+
+data class Message(
+    val id: String = "",
+    val conversationId: String = "",
+    val senderId: String = "",
+    val content: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val read: Boolean = false,
+    val senderName: String? = null,
+    val senderAvatar: String? = null,
+    val sender: User? = null
+)
+
+data class SendMessageRequest(
+    val content: String
+)

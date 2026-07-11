@@ -1968,7 +1968,7 @@ async function startServer() {
     if (!assistantUser.isVip) { assistantUser.isVip = true; changed = true; }
     if (changed) await saveUser(assistantUser);
   }
-  if (posts.length === 0) {
+  if (posts.length < 10) {
     const botNames = ['生活记录者', '读书爱好者', '咖啡控', '摄影小白', '跑步达人', '美食猎人'];
     const botUsers = [assistantUser];
     for (const name of botNames) {

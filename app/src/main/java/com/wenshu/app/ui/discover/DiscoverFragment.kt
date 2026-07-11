@@ -35,21 +35,15 @@ class DiscoverFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        try {
-            setupTrending()
-            setupSearch()
-            setupHotSearches()
-            setupSwipeRefresh()
-            observeData()
-        } catch (e: Exception) {
-            Log.e("DiscoverFragment", "Error in onViewCreated", e)
-        }
+        setupTrending()
+        setupSearch()
+        setupHotSearches()
+        setupSwipeRefresh()
+        observeData()
     }
 
     private fun setupSwipeRefresh() {
-        context?.let { ctx ->
-            binding.swipeRefresh.setColorSchemeColors(ContextCompat.getColor(ctx, R.color.seal))
-        }
+        binding.swipeRefresh.setColorSchemeColors(ContextCompat.getColor(requireContext(), R.color.seal))
         binding.swipeRefresh.setOnRefreshListener {
             loadTopics()
             binding.swipeRefresh.isRefreshing = false
@@ -62,25 +56,17 @@ class DiscoverFragment : Fragment() {
 
     private fun setupSearch() {
         binding.searchBar.setOnClickListener {
-            try {
-                startActivity(Intent(requireContext(), SearchActivity::class.java))
-            } catch (e: Exception) {
-                Log.e("DiscoverFragment", "Error starting SearchActivity", e)
-            }
+            startActivity(Intent(requireContext(), SearchActivity::class.java))
         }
         binding.etSearch.setOnClickListener {
-            try {
-                startActivity(Intent(requireContext(), SearchActivity::class.java))
-            } catch (e: Exception) {
-                Log.e("DiscoverFragment", "Error starting SearchActivity", e)
-            }
+            startActivity(Intent(requireContext(), SearchActivity::class.java))
         }
     }
 
     private fun setupHotSearches() {
         val ctx = context ?: return
         binding.hotSearchLayout.removeAllViews()
-        
+
         var currentRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -109,17 +95,13 @@ class DiscoverFragment : Fragment() {
                     bottomMargin = margin8
                 }
                 setOnClickListener {
-                    try {
-                        val intent = Intent(requireContext(), SearchActivity::class.java)
-                        intent.putExtra("query", search)
-                        startActivity(intent)
-                    } catch (e: Exception) {
-                        Log.e("DiscoverFragment", "Error searching for: $search", e)
-                    }
+                    val intent = Intent(requireContext(), SearchActivity::class.java)
+                    intent.putExtra("query", search)
+                    startActivity(intent)
                 }
             }
             currentRow.addView(tv)
-            
+
             if ((index + 1) % 3 == 0 && index < hotSearches.size - 1) {
                 binding.hotSearchLayout.addView(currentRow)
                 currentRow = LinearLayout(ctx).apply {
@@ -140,13 +122,9 @@ class DiscoverFragment : Fragment() {
         val ctx = context ?: return
         trendingAdapter = TrendingTopicAdapter(
             onTopicClick = { topic ->
-                try {
-                    val intent = Intent(requireContext(), SearchActivity::class.java)
-                    intent.putExtra("query", topic.title)
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    Log.e("DiscoverFragment", "Error clicking topic: ${topic.title}", e)
-                }
+                val intent = Intent(requireContext(), SearchActivity::class.java)
+                intent.putExtra("query", topic.title)
+                startActivity(intent)
             }
         )
         binding.recyclerTrending.apply {
@@ -158,7 +136,9 @@ class DiscoverFragment : Fragment() {
 
     private fun observeData() {
         viewModel.trendingTags.observe(viewLifecycleOwner) { topics ->
-            trendingAdapter.submitList(topics ?: emptyList())
+            if (::trendingAdapter.isInitialized) {
+                trendingAdapter.submitList(topics ?: emptyList())
+            }
         }
     }
 
