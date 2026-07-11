@@ -45,11 +45,35 @@ function uid(prefix) { return prefix + '_' + Date.now().toString(36) + Math.rand
 
 export async function initDB() {
   initPostgres();
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   if (!pool) {
-    console.log('⚠️  No DATABASE_URL - using in-memory storage (data will not persist). Set DATABASE_URL for CockroachDB.');
+    if (isProduction) {
+      console.error('❌ FATAL: DATABASE_URL is NOT set in production environment!');
+      console.error('   Data will NOT persist without a database. Set DATABASE_URL to your CockroachDB connection string in Render dashboard.');
+      console.error('   Go to: Render Dashboard → Your Service → Environment → Add DATABASE_URL');
+      process.exit(1);
+    }
+    console.log('⚠️  No DATABASE_URL - using in-memory storage (LOCAL DEV ONLY - data will not persist).');
     useMem = true;
     return;
   }
+  
+  try {
+    const testClient = await pool.connect();
+    await testClient.query('SELECT 1');
+    testClient.release();
+    console.log('✅ Database connection verified successfully');
+  } catch (err) {
+    console.error('❌ FATAL: Failed to connect to database:', err.message);
+    if (isProduction) {
+      process.exit(1);
+    }
+    console.log('⚠️  Falling back to in-memory storage for local dev...');
+    useMem = true;
+    return;
+  }
+  
   useMem = false;
   console.log('📦 Using CockroachDB/PostgreSQL database');
   await initTables();
