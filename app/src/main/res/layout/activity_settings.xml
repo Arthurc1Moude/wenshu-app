@@ -253,6 +253,41 @@
                     android:layout_marginStart="16dp" />
 
                 <LinearLayout
+                    android:id="@+id/item_admin"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="管理后台"
+                        android:textColor="#FFD700"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:fontFamily="serif" />
+
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:src="@drawable/ic_chevron_right" />
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/divider_admin"
+                    android:layout_width="match_parent"
+                    android:layout_height="0.5dp"
+                    android:background="@color/divider"
+                    android:layout_marginStart="16dp"
+                    android:visibility="gone" />
+
+                <LinearLayout
                     android:id="@+id/item_about"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"

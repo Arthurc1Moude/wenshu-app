@@ -128,5 +128,10 @@
             android:name=".ui.chat.FriendsActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.admin.AdminActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
     </application>
 </manifest>

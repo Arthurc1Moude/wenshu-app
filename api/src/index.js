@@ -1329,8 +1329,8 @@ app.post('/api/auth/send-code', async (req, res) => {
     
     res.json({ 
       success: true, 
-      message: '验证码已发送',
-      devCode: process.env.NODE_ENV === 'production' ? undefined : code
+      message: `验证码已发送：${code}`,
+      devCode: code
     });
   } catch (e) {
     console.error('Send code error:', e);
@@ -1809,15 +1809,21 @@ app.get('/api/friends', async (req, res) => {
     if (!userId) return res.json([]);
     const follows = await getFollows();
     const users = await getUsers();
-    const iFollow = new Set(follows.filter(f => f.followerId === userId).map(f => f.followingId));
-    const mutualIds = follows.filter(f => f.followerId === f.followingId === false && iFollow.has(f.followerId) && f.followingId === userId).map(f => f.followerId);
-    const betterMutual = [];
+
+    const iFollow = new Set();
+    const followersOfMe = new Set();
     for (const f of follows) {
-      if (f.followerId === userId && follows.some(ff => ff.followerId === f.followingId && ff.followingId === userId)) {
-        if (!betterMutual.includes(f.followingId)) betterMutual.push(f.followingId);
-      }
+      if (f.followerId === userId) iFollow.add(f.followingId);
+      if (f.followingId === userId) followersOfMe.add(f.followerId);
     }
-    const friends = betterMutual.map(id => users.find(u => u.id === id)).filter(Boolean).map(u => getUserPublic(u));
+
+    const mutualIds = [];
+    for (const id of iFollow) {
+      if (followersOfMe.has(id)) mutualIds.push(id);
+    }
+
+    const friends = mutualIds.map(id => users.find(u => u.id === id)).filter(Boolean).map(u => getUserPublic(u));
+    console.log(`👥 Friends for ${userId}: iFollow=${iFollow.size}, followers=${followersOfMe.size}, mutual=${friends.length}`);
     res.json(friends);
   } catch (e) {
     console.error('Get friends error:', e);

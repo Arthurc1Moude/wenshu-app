@@ -3,6 +3,7 @@ package com.wenshu.app.ui.settings
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -10,6 +11,7 @@ import com.wenshu.app.R
 import com.wenshu.app.data.SharedPreferencesManager
 import com.wenshu.app.data.repository.PostRepository
 import com.wenshu.app.databinding.ActivitySettingsBinding
+import com.wenshu.app.ui.admin.AdminActivity
 import com.wenshu.app.ui.auth.LoginActivity
 import com.wenshu.app.ui.profile.EditProfileActivity
 import com.wenshu.app.util.TimeUtils
@@ -37,6 +39,14 @@ class SettingsActivity : AppCompatActivity() {
             binding.tvVipStatus.text = expiresText
         } else {
             binding.tvVipStatus.text = "立即开通"
+        }
+
+        if (user != null && user.isAdmin) {
+            binding.itemAdmin.visibility = View.VISIBLE
+            binding.dividerAdmin.visibility = View.VISIBLE
+        } else {
+            binding.itemAdmin.visibility = View.GONE
+            binding.dividerAdmin.visibility = View.GONE
         }
     }
 
@@ -67,6 +77,10 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.itemShareApp.setOnClickListener {
             shareApp()
+        }
+
+        binding.itemAdmin.setOnClickListener {
+            startActivity(Intent(this, AdminActivity::class.java))
         }
 
         binding.itemAbout.setOnClickListener {
