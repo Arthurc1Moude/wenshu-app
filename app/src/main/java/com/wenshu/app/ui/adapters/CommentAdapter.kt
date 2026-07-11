@@ -67,6 +67,8 @@ class CommentAdapter(
             imgAvatar.setOnClickListener { onUserClick(comment) }
             tvUsername.setOnClickListener { onUserClick(comment) }
 
+            root.setOnClickListener { onReplyClick(comment) }
+
             val replies = repliesMap[comment.id]
             if (replies.isNullOrEmpty()) {
                 layoutReplies.visibility = View.GONE
@@ -133,6 +135,7 @@ class CommentAdapter(
             layoutLike.setOnClickListener { onLikeClick(reply) }
             replyView.setOnClickListener { onReplyClick(reply) }
             imgAvatar.setOnClickListener { onUserClick(reply) }
+            tvUsername.setOnClickListener { onUserClick(reply) }
 
             container.addView(replyView)
         }
