@@ -91,7 +91,7 @@ class FriendsActivity : AppCompatActivity() {
                 b.tvVipBadge.visibility = if (user.isVip) View.VISIBLE else View.GONE
                 val url = if (!user.avatar.isNullOrBlank()) user.avatar else ImageUtils.getAvatarUrl(user.username)
                 Glide.with(this@FriendsActivity).load(url).circleCrop()
-                    .placeholder(R.drawable.default_avatar).error(R.drawable.default_avatar).into(b.imgAvatar)
+                    .placeholder(R.drawable.bg_avatar_placeholder).error(R.drawable.bg_avatar_placeholder).into(b.imgAvatar)
                 b.root.setOnClickListener { onClick(user) }
             }
         }

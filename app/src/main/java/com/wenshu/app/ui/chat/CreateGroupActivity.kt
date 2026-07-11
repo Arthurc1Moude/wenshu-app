@@ -112,7 +112,7 @@ class CreateGroupActivity : AppCompatActivity() {
                 b.tvBio.text = user.bio ?: "互关好友"
                 val url = if (!user.avatar.isNullOrBlank()) user.avatar else ImageUtils.getAvatarUrl(user.username)
                 Glide.with(this@CreateGroupActivity).load(url).circleCrop()
-                    .placeholder(R.drawable.default_avatar).error(R.drawable.default_avatar).into(b.imgAvatar)
+                    .placeholder(R.drawable.bg_avatar_placeholder).error(R.drawable.bg_avatar_placeholder).into(b.imgAvatar)
                 b.cbSelect.setOnCheckedChangeListener(null)
                 b.cbSelect.isChecked = selectedIds.contains(user.id)
                 val toggle: (View) -> Unit = {

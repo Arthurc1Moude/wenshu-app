@@ -11,7 +11,6 @@ import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.animation.doOnEnd
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
@@ -209,8 +208,8 @@ class MainActivity : AppCompatActivity() {
         val url = if (!avatarUrl.isNullOrBlank()) avatarUrl else ImageUtils.getAvatarUrl(username)
         Glide.with(this)
             .load(url)
-            .placeholder(R.drawable.default_avatar)
-            .error(R.drawable.default_avatar)
+            .placeholder(R.drawable.bg_avatar_placeholder)
+            .error(R.drawable.bg_avatar_placeholder)
             .circleCrop()
             .into(view)
     }

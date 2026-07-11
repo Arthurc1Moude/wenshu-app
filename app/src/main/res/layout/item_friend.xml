@@ -7,14 +7,19 @@
     android:paddingStart="@dimen/spacing_lg"
     android:paddingEnd="@dimen/spacing_lg"
     android:paddingTop="@dimen/spacing_md"
-    android:paddingBottom="@dimen/spacing_md">
+    android:paddingBottom="@dimen/spacing_md"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true">
 
     <ImageView
         android:id="@+id/img_avatar"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:background="@drawable/bg_round_primary"
-        android:scaleType="centerCrop" />
+        android:src="@drawable/bg_avatar_placeholder"
+        android:scaleType="centerCrop"
+        android:background="@drawable/bg_circle"
+        android:contentDescription="@null" />
 
     <LinearLayout
         android:layout_width="0dp"
@@ -48,6 +53,8 @@
                 android:background="@drawable/bg_vip_badge"
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
+                android:paddingTop="1dp"
+                android:paddingBottom="1dp"
                 android:text="VIP"
                 android:textColor="@color/on_primary"
                 android:textSize="9sp"
@@ -72,6 +79,6 @@
         android:layout_height="20dp"
         android:src="@drawable/ic_arrow_back"
         android:rotation="180"
-        android:alpha="0.3f"
+        android:alpha="0.3"
         android:contentDescription="@null" />
 </LinearLayout>
