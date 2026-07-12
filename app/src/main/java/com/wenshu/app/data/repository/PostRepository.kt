@@ -229,9 +229,9 @@ class PostRepository {
         return safeApiCall { api.getUserById(userId) }
     }
 
-    suspend fun updateProfile(username: String? = null, bio: String? = null, location: String? = null, avatar: String? = null): Result<User> {
+    suspend fun updateProfile(username: String? = null, bio: String? = null, location: String? = null, avatar: String? = null, cover: String? = null): Result<User> {
         _isLoading.postValue(true)
-        val result = safeApiCall { api.updateProfile(UpdateUserRequest(username = username, bio = bio, location = location, avatar = avatar)) }
+        val result = safeApiCall { api.updateProfile(UpdateUserRequest(username = username, bio = bio, location = location, avatar = avatar, cover = cover)) }
         result.onSuccess { user ->
             SharedPreferencesManager.updateUser(user)
         }.onFailure { _error.postValue(it.message) }

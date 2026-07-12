@@ -58,6 +58,8 @@ object RetrofitClient {
         retrofit.create(ApiService::class.java)
     }
 
+    fun getBaseUrl(): String = BASE_URL.removeSuffix("/api/")
+
     fun parseError(errorBody: String?): String {
         return try {
             if (errorBody.isNullOrBlank()) return "请求失败，请检查网络连接"

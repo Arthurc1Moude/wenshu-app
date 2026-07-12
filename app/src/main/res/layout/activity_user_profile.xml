@@ -37,11 +37,6 @@
                     app:layout_collapseParallaxMultiplier="0.5"
                     android:contentDescription="@null" />
 
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@drawable/bg_profile_cover_shadow" />
-
                 <FrameLayout
                     android:id="@+id/toolbar_layout"
                     android:layout_width="match_parent"
@@ -77,8 +72,6 @@
                             android:layout_width="32dp"
                             android:layout_height="32dp"
                             android:scaleType="centerCrop"
-                            android:background="@drawable/bg_circle_white_small"
-                            android:padding="1.5dp"
                             android:contentDescription="@null" />
 
                         <TextView
@@ -130,10 +123,6 @@
                         android:layout_gravity="top|start"
                         android:layout_marginStart="@dimen/spacing_lg"
                         android:scaleType="centerCrop"
-                        android:background="@drawable/bg_circle_avatar_border"
-                        android:padding="2dp"
-                        android:elevation="8dp"
-                        android:translationZ="8dp"
                         android:contentDescription="@null" />
                 </FrameLayout>
 

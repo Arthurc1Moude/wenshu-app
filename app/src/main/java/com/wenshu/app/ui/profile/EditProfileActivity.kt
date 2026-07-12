@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -24,6 +25,8 @@ class EditProfileActivity : AppCompatActivity() {
     private lateinit var binding: ActivityEditProfileBinding
     private val repository = PostRepository.getInstance()
     private var selectedAvatarPath: String? = null
+    private var selectedCoverPath: String? = null
+    private var pickingCover = false
 
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -54,6 +57,14 @@ class EditProfileActivity : AppCompatActivity() {
                 .circleCrop()
                 .into(binding.imgEditAvatar)
         }
+        val coverUrl = ImageUtils.normalizeUrl(user?.cover)
+        if (coverUrl != null) {
+            Glide.with(this)
+                .load(coverUrl)
+                .centerCrop()
+                .into(binding.imgEditCover)
+            binding.tvChangeCover.visibility = View.GONE
+        }
     }
 
     private fun setupClickListeners() {
@@ -61,6 +72,10 @@ class EditProfileActivity : AppCompatActivity() {
 
         binding.imgEditAvatar.setOnClickListener {
             showAvatarOptions()
+        }
+
+        binding.layoutEditCover.setOnClickListener {
+            showCoverOptions()
         }
 
         binding.btnSave.setOnClickListener {
@@ -74,7 +89,20 @@ class EditProfileActivity : AppCompatActivity() {
             .setTitle("更换头像")
             .setItems(options) { _, which ->
                 when (which) {
-                    0 -> pickFromGallery()
+                    0 -> { pickingCover = false; pickFromGallery() }
+                    1 -> showNotImplementedToast()
+                }
+            }
+            .show()
+    }
+
+    private fun showCoverOptions() {
+        val options = arrayOf("从相册选择", "拍照")
+        AlertDialog.Builder(this)
+            .setTitle("更换封面")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> { pickingCover = true; pickFromGallery() }
                     1 -> showNotImplementedToast()
                 }
             }
@@ -90,17 +118,27 @@ class EditProfileActivity : AppCompatActivity() {
     private fun handleImagePick(uri: Uri) {
         try {
             val inputStream = contentResolver.openInputStream(uri)
-            val tempFile = File(cacheDir, "avatar_${System.currentTimeMillis()}.jpg")
+            val prefix = if (pickingCover) "cover" else "avatar"
+            val tempFile = File(cacheDir, "${prefix}_${System.currentTimeMillis()}.jpg")
             inputStream?.use { input ->
                 tempFile.outputStream().use { output ->
                     input.copyTo(output)
                 }
             }
-            selectedAvatarPath = tempFile.absolutePath
-            Glide.with(this)
-                .load(tempFile)
-                .circleCrop()
-                .into(binding.imgEditAvatar)
+            if (pickingCover) {
+                selectedCoverPath = tempFile.absolutePath
+                Glide.with(this)
+                    .load(tempFile)
+                    .centerCrop()
+                    .into(binding.imgEditCover)
+                binding.tvChangeCover.visibility = View.GONE
+            } else {
+                selectedAvatarPath = tempFile.absolutePath
+                Glide.with(this)
+                    .load(tempFile)
+                    .circleCrop()
+                    .into(binding.imgEditAvatar)
+            }
         } catch (e: Exception) {
             Log.e("EditProfile", "Error handling image", e)
             Toast.makeText(this, "图片选择失败", Toast.LENGTH_SHORT).show()
@@ -126,6 +164,7 @@ class EditProfileActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 var avatarUrl: String? = null
+                var coverUrl: String? = null
 
                 if (selectedAvatarPath != null) {
                     val uploadResult = repository.uploadImage(selectedAvatarPath!!)
@@ -136,7 +175,16 @@ class EditProfileActivity : AppCompatActivity() {
                     }
                 }
 
-                val result = repository.updateProfile(username, bio, location, avatarUrl)
+                if (selectedCoverPath != null) {
+                    val uploadResult = repository.uploadImage(selectedCoverPath!!)
+                    uploadResult.onSuccess { url ->
+                        coverUrl = url
+                    }.onFailure { e ->
+                        Log.e("EditProfile", "Cover upload failed", e)
+                    }
+                }
+
+                val result = repository.updateProfile(username, bio, location, avatarUrl, coverUrl)
                 result.onSuccess {
                     Toast.makeText(this@EditProfileActivity, "保存成功", Toast.LENGTH_SHORT).show()
                     setResult(Activity.RESULT_OK)

@@ -160,4 +160,59 @@ interface ApiService {
 
     @POST("conversations/{id}/read")
     suspend fun markConversationRead(@Path("id") conversationId: String): SimpleResponse
+
+    @GET("books")
+    suspend fun getBooks(@Query("type") type: String? = null): List<Book>
+
+    @GET("books/{id}")
+    suspend fun getBookById(@Path("id") bookId: String): Book
+
+    @POST("books")
+    suspend fun createBook(@Body request: CreateBookRequest): Book
+
+    @Multipart
+    @POST("books/upload")
+    suspend fun uploadBookFile(@Part file: MultipartBody.Part): UploadResponse
+
+    @POST("books/{id}/read")
+    suspend fun markBookRead(@Path("id") bookId: String): SimpleResponse
+
+    @DELETE("books/{id}")
+    suspend fun deleteBook(@Path("id") bookId: String): SimpleResponse
+
+    @GET("official/posts")
+    suspend fun getOfficialPosts(): List<Post>
+
+    @GET("miniapps")
+    suspend fun getMiniApps(): List<MiniApp>
+
+    @POST("miniapps")
+    suspend fun createMiniApp(@Body request: Map<String, String>): MiniApp
+
+    @GET("games")
+    suspend fun getGames(): List<Game>
+
+    @POST("games")
+    suspend fun createGame(@Body request: Map<String, String>): Game
+
+    @POST("games/{id}/play")
+    suspend fun markGamePlay(@Path("id") gameId: String): SimpleResponse
+
+    @GET("secret/posts")
+    suspend fun getSecretPosts(@Query("mine") mine: Boolean? = null): List<SecretPost>
+
+    @POST("secret/posts")
+    suspend fun createSecretPost(@Body request: CreateSecretPostRequest): SecretPost
+
+    @DELETE("secret/posts/{id}")
+    suspend fun deleteSecretPost(@Path("id") postId: String): SimpleResponse
+
+    @PUT("secret/posts/{id}/visibility")
+    suspend fun updateSecretVisibility(@Path("id") postId: String, @Body request: SecretVisibilityRequest): SecretPost
+
+    @GET("secret/visits")
+    suspend fun getSecretVisits(): List<SecretVisit>
+
+    @POST("secret/visit/{userId}")
+    suspend fun recordSecretVisit(@Path("userId") userId: String): SimpleResponse
 }

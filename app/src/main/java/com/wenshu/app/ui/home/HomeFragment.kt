@@ -16,7 +16,12 @@ import com.wenshu.app.MainActivity
 import com.wenshu.app.R
 import com.wenshu.app.databinding.FragmentHomeBinding
 import com.wenshu.app.ui.adapters.PostCardAdapter
+import com.wenshu.app.ui.books.BooksActivity
+import com.wenshu.app.ui.games.GamesActivity
+import com.wenshu.app.ui.miniapps.MiniAppsActivity
+import com.wenshu.app.ui.official.OfficialPostsActivity
 import com.wenshu.app.ui.search.SearchActivity
+import com.wenshu.app.ui.secret.SecretSpaceActivity
 
 class HomeFragment : Fragment() {
 
@@ -24,6 +29,7 @@ class HomeFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: HomeViewModel by viewModels()
     private lateinit var postAdapter: PostCardAdapter
+    private var featuresVisible = false
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         Log.d("HomeFragment", "onCreateView")
@@ -34,16 +40,13 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         Log.d("HomeFragment", "onViewCreated")
-        try {
-            setupRecyclerView()
-            setupTabs()
-            setupSwipeRefresh()
-            setupRetryButton()
-            observeData()
-            Log.d("HomeFragment", "setup complete")
-        } catch (e: Exception) {
-            Log.e("HomeFragment", "Error in onViewCreated", e)
-        }
+        setupRecyclerView()
+        setupTabs()
+        setupSwipeRefresh()
+        setupRetryButton()
+        setupFeaturePanel()
+        observeData()
+        Log.d("HomeFragment", "setup complete")
     }
 
     private fun setupRecyclerView() {
@@ -87,11 +90,40 @@ class HomeFragment : Fragment() {
     private fun setupSwipeRefresh() {
         binding.swipeRefresh.setColorSchemeColors(ContextCompat.getColor(requireContext(), R.color.seal))
         binding.swipeRefresh.setOnRefreshListener {
+            toggleFeaturePanel()
             viewModel.refresh()
         }
         binding.btnSearch.setOnClickListener {
             startActivity(Intent(requireContext(), SearchActivity::class.java))
         }
+    }
+
+    private fun setupFeaturePanel() {
+        binding.pullHint.setOnClickListener { toggleFeaturePanel() }
+        binding.btnCloseFeatures.setOnClickListener { hideFeaturePanel() }
+        binding.btnBooks.setOnClickListener { startActivity(Intent(requireContext(), BooksActivity::class.java).putExtra("type", "book")) }
+        binding.btnNovels.setOnClickListener { startActivity(Intent(requireContext(), BooksActivity::class.java).putExtra("type", "novel")) }
+        binding.btnMiniapps.setOnClickListener { startActivity(Intent(requireContext(), MiniAppsActivity::class.java)) }
+        binding.btnWorld.setOnClickListener { startActivity(Intent(requireContext(), OfficialPostsActivity::class.java)) }
+        binding.btnGames.setOnClickListener { startActivity(Intent(requireContext(), GamesActivity::class.java)) }
+        binding.btnSpace.setOnClickListener { startActivity(Intent(requireContext(), SecretSpaceActivity::class.java)) }
+    }
+
+    private fun showFeaturePanel() {
+        if (featuresVisible) return
+        featuresVisible = true
+        binding.featurePanel.visibility = View.VISIBLE
+        binding.pullHint.text = "↑ 收起功能面板"
+    }
+
+    private fun hideFeaturePanel() {
+        featuresVisible = false
+        binding.featurePanel.visibility = View.GONE
+        binding.pullHint.text = "↓ 下拉查看文书功能"
+    }
+
+    private fun toggleFeaturePanel() {
+        if (featuresVisible) hideFeaturePanel() else showFeaturePanel()
     }
 
     private fun setupRetryButton() {

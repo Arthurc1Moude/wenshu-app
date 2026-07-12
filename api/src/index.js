@@ -29,6 +29,14 @@ import {
   getGroupMembers, getUserGroups, addGroupMember, removeGroupMember, isGroupMember, generateGroupNumber
 } from './db.js';
 
+import {
+  getBooks, saveBook, deleteBook,
+  getSecretPosts, saveSecretPost, deleteSecretPost,
+  getSecretVisits, addSecretVisit,
+  getMiniApps, saveMiniApp,
+  getGames, saveGame
+} from './features-store.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -272,6 +280,27 @@ async function createWelcomeConversation(userId) {
     msgTime += 60000;
   }
 }
+
+// ========== AUTH MIDDLEWARE ==========
+const auth = async (req, res, next) => {
+  const userId = getUserId(req);
+  if (!userId) return res.status(401).json({ error: '未登录' });
+  const users = await getUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user) return res.status(401).json({ error: '用户不存在' });
+  req.userId = userId;
+  next();
+};
+
+const authOptional = async (req, res, next) => {
+  const userId = getUserId(req);
+  if (userId) {
+    const users = await getUsers();
+    const user = users.find(u => u.id === userId);
+    if (user) req.userId = userId;
+  }
+  next();
+};
 
 // ========== AUTH ==========
 app.post('/api/auth/register', async (req, res) => {
@@ -2039,6 +2068,213 @@ async function startServer() {
       });
     }
   }
+
+  // ========== 文书阅读 / 图书 APIs ==========
+  app.get('/api/books', authOptional, async (req, res) => {
+    const uid = getUserId(req);
+    let books = await getBooks();
+    books = books.filter(b => !b.isPrivate || b.authorId === uid);
+    if (req.query.type === 'novel') books = books.filter(b => b.category === 'novel');
+    const users = await getUsers();
+    books = books.map(b => {
+      const author = users.find(u => u.id === b.authorId);
+      return { ...b, authorName: author?.username || '匿名', authorAvatar: author?.avatar };
+    }).sort((a, b) => b.createdAt - a.createdAt);
+    res.json(books);
+  });
+
+  app.get('/api/books/:id', authOptional, async (req, res) => {
+    const books = await getBooks();
+    const book = books.find(b => b.id === req.params.id);
+    if (!book) return res.status(404).json({ error: '图书不存在' });
+    const uid = getUserId(req);
+    if (book.isPrivate && book.authorId !== uid) return res.status(403).json({ error: '无权访问' });
+    res.json(book);
+  });
+
+  app.post('/api/books', auth, async (req, res) => {
+    const uid = getUserId(req);
+    const { title, description, category = 'book', content = '', fileUrl = '', coverUrl = '', isPrivate = false } = req.body;
+    if (!title) return res.status(400).json({ error: '请输入书名' });
+    const book = {
+      id: genId('book'),
+      authorId: uid,
+      title, description, category, content, fileUrl, coverUrl,
+      isPrivate: !!isPrivate,
+      readCount: 0, likeCount: 0,
+      createdAt: Date.now(), updatedAt: Date.now()
+    };
+    await saveBook(book);
+    res.json(book);
+  });
+
+  app.post('/api/books/upload', auth, upload.single('file'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: '请选择文件' });
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({ url: fileUrl, filename: req.file.originalname });
+  });
+
+  app.post('/api/books/:id/read', authOptional, async (req, res) => {
+    const books = await getBooks();
+    const i = books.findIndex(b => b.id === req.params.id);
+    if (i < 0) return res.status(404).json({ error: '图书不存在' });
+    books[i].readCount = (books[i].readCount || 0) + 1;
+    await saveBook(books[i]);
+    res.json({ success: true });
+  });
+
+  app.delete('/api/books/:id', auth, async (req, res) => {
+    const uid = getUserId(req);
+    const books = await getBooks();
+    const book = books.find(b => b.id === req.params.id);
+    if (!book) return res.status(404).json({ error: '图书不存在' });
+    if (book.authorId !== uid) return res.status(403).json({ error: '无权删除' });
+    await deleteBook(req.params.id);
+    res.json({ success: true });
+  });
+
+  // ========== 文书天地 (官方精选) ==========
+  app.get('/api/official/posts', authOptional, async (req, res) => {
+    let posts = await getPosts();
+    const users = await getUsers();
+    const botIds = users.filter(u => u.isBot || u.role === 'admin' || u.id === 'official').map(u => u.id);
+    posts = posts.filter(p => botIds.includes(p.authorId) || (p.tags && p.tags.includes('官方精选')));
+    posts = posts.map(p => {
+      const author = users.find(u => u.id === p.authorId);
+      return { ...p, authorName: author?.username, authorAvatar: author?.avatar, isLiked: false, isCollected: false };
+    }).sort((a, b) => b.createdAt - a.createdAt).slice(0, 50);
+    res.json(posts);
+  });
+
+  // ========== 文书小应用 APIs ==========
+  app.get('/api/miniapps', authOptional, async (req, res) => {
+    const apps = await getMiniApps();
+    res.json(apps.sort((a, b) => b.createdAt - a.createdAt));
+  });
+
+  app.post('/api/miniapps', auth, async (req, res) => {
+    const uid = getUserId(req);
+    const users = await getUsers();
+    const user = users.find(u => u.id === uid);
+    const { name, description, url, icon = '📱', category = 'other' } = req.body;
+    if (!name || !url) return res.status(400).json({ error: '请填写应用名称和URL' });
+    const app = { id: genId('app'), name, description, url, icon, category, developerId: uid, developerName: user?.username || '匿名', createdAt: Date.now() };
+    await saveMiniApp(app);
+    res.json(app);
+  });
+
+  // ========== 文书游戏 APIs ==========
+  app.get('/api/games', authOptional, async (req, res) => {
+    const games = await getGames();
+    res.json(games.sort((a, b) => (b.plays || 0) - (a.plays || 0)));
+  });
+
+  app.post('/api/games', auth, async (req, res) => {
+    const uid = getUserId(req);
+    const users = await getUsers();
+    const user = users.find(u => u.id === uid);
+    const { name, description, url, icon = '🎮', category = 'other' } = req.body;
+    if (!name || !url) return res.status(400).json({ error: '请填写游戏名称和URL' });
+    const game = { id: genId('game'), name, description, url, icon, category, developerId: uid, developerName: user?.username || '匿名', plays: 0, createdAt: Date.now() };
+    await saveGame(game);
+    res.json(game);
+  });
+
+  app.post('/api/games/:id/play', authOptional, async (req, res) => {
+    const games = await getGames();
+    const i = games.findIndex(g => g.id === req.params.id);
+    if (i < 0) return res.status(404).json({ error: '游戏不存在' });
+    games[i].plays = (games[i].plays || 0) + 1;
+    await saveGame(games[i]);
+    res.json({ success: true });
+  });
+
+  // ========== 文书空间 (秘帖) APIs ==========
+  app.get('/api/secret/posts', auth, async (req, res) => {
+    const uid = getUserId(req);
+    const users = await getUsers();
+    const posts = await getSecretPosts();
+    const mine = req.query.mine === 'true';
+
+    let visible;
+    if (mine) {
+      visible = posts.filter(p => p.authorId === uid);
+    } else {
+      const follows = await getFollows();
+      const following = new Set(follows.filter(f => f.followerId === uid).map(f => f.followingId));
+      const followers = new Set(follows.filter(f => f.followingId === uid).map(f => f.followerId));
+      const mutualIds = new Set([...following].filter(id => followers.has(id)));
+
+      visible = posts.filter(p => {
+        if (p.authorId === uid) return true;
+        if (p.visibility === 'public') return true;
+        if (p.visibility === 'mutual' && mutualIds.has(p.authorId)) return true;
+        if (p.visibility === 'specified' && p.allowedUsers?.includes(uid)) return true;
+        return false;
+      });
+    }
+
+    visible = visible.map(p => {
+      const author = users.find(u => u.id === p.authorId);
+      return { ...p, authorName: author?.username, authorAvatar: author?.avatar };
+    }).sort((a, b) => b.createdAt - a.createdAt);
+    res.json(visible);
+  });
+
+  app.post('/api/secret/posts', auth, async (req, res) => {
+    const uid = getUserId(req);
+    const { content, images = [], visibility = 'private', allowedUsers = [] } = req.body;
+    if (!content) return res.status(400).json({ error: '内容不能为空' });
+    const post = {
+      id: genId('secret'), authorId: uid, content, images,
+      visibility, allowedUsers: visibility === 'specified' ? allowedUsers : [],
+      likeCount: 0, commentCount: 0, createdAt: Date.now()
+    };
+    await saveSecretPost(post);
+    res.json(post);
+  });
+
+  app.delete('/api/secret/posts/:id', auth, async (req, res) => {
+    const uid = getUserId(req);
+    const posts = await getSecretPosts();
+    const post = posts.find(p => p.id === req.params.id);
+    if (!post) return res.status(404).json({ error: '帖子不存在' });
+    if (post.authorId !== uid) return res.status(403).json({ error: '无权删除' });
+    await deleteSecretPost(req.params.id);
+    res.json({ success: true });
+  });
+
+  app.put('/api/secret/posts/:id/visibility', auth, async (req, res) => {
+    const uid = getUserId(req);
+    const posts = await getSecretPosts();
+    const i = posts.findIndex(p => p.id === req.params.id);
+    if (i < 0) return res.status(404).json({ error: '帖子不存在' });
+    if (posts[i].authorId !== uid) return res.status(403).json({ error: '无权修改' });
+    const { visibility, allowedUsers = [] } = req.body;
+    posts[i].visibility = visibility;
+    posts[i].allowedUsers = visibility === 'specified' ? allowedUsers : [];
+    await saveSecretPost(posts[i]);
+    res.json(posts[i]);
+  });
+
+  app.get('/api/secret/visits', auth, async (req, res) => {
+    const uid = getUserId(req);
+    const visits = await getSecretVisits();
+    const users = await getUsers();
+    const myVisits = visits.filter(v => v.spaceOwnerId === uid).map(v => {
+      const visitor = users.find(u => u.id === v.visitorId);
+      return { ...v, visitorName: visitor?.username, visitorAvatar: visitor?.avatar };
+    }).sort((a, b) => b.createdAt - a.createdAt).slice(0, 100);
+    res.json(myVisits);
+  });
+
+  app.post('/api/secret/visit/:userId', auth, async (req, res) => {
+    const uid = getUserId(req);
+    if (uid === req.params.userId) return res.json({ success: true });
+    await addSecretVisit({ id: genId('sv'), spaceOwnerId: req.params.userId, visitorId: uid, createdAt: Date.now() });
+    res.json({ success: true });
+  });
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 文书APP后端服务运行在 port ${PORT}`);
   });

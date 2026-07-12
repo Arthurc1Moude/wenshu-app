@@ -222,3 +222,91 @@ data class Message(
 data class SendMessageRequest(
     val content: String
 )
+
+data class Book(
+    val id: String = "",
+    val authorId: String = "",
+    val title: String = "",
+    val description: String = "",
+    val category: String = "book",
+    val content: String = "",
+    val fileUrl: String = "",
+    val coverUrl: String = "",
+    val isPrivate: Boolean = false,
+    val readCount: Int = 0,
+    val likeCount: Int = 0,
+    val authorName: String? = null,
+    val authorAvatar: String? = null,
+    val createdAt: Long = 0,
+    val updatedAt: Long = 0
+)
+
+data class CreateBookRequest(
+    val title: String,
+    val description: String = "",
+    val category: String = "book",
+    val content: String = "",
+    val fileUrl: String = "",
+    val coverUrl: String = "",
+    val isPrivate: Boolean = false
+)
+
+data class MiniApp(
+    val id: String = "",
+    val name: String = "",
+    val description: String = "",
+    val icon: String = "📱",
+    val url: String = "",
+    val category: String = "other",
+    val developerId: String = "",
+    val developerName: String = "",
+    val createdAt: Long = 0
+)
+
+data class Game(
+    val id: String = "",
+    val name: String = "",
+    val description: String = "",
+    val icon: String = "🎮",
+    val url: String = "",
+    val category: String = "other",
+    val developerId: String = "",
+    val developerName: String = "",
+    val plays: Int = 0,
+    val createdAt: Long = 0
+)
+
+data class SecretPost(
+    val id: String = "",
+    val authorId: String = "",
+    val content: String = "",
+    val images: List<String> = emptyList(),
+    val visibility: String = "private",
+    val allowedUsers: List<String> = emptyList(),
+    val likeCount: Int = 0,
+    val commentCount: Int = 0,
+    val authorName: String? = null,
+    val authorAvatar: String? = null,
+    val createdAt: Long = 0
+)
+
+data class CreateSecretPostRequest(
+    val content: String,
+    val images: List<String> = emptyList(),
+    val visibility: String = "private",
+    val allowedUsers: List<String> = emptyList()
+)
+
+data class SecretVisibilityRequest(
+    val visibility: String,
+    val allowedUsers: List<String> = emptyList()
+)
+
+data class SecretVisit(
+    val id: String = "",
+    val spaceOwnerId: String = "",
+    val visitorId: String = "",
+    val visitorName: String? = null,
+    val visitorAvatar: String? = null,
+    val createdAt: Long = 0
+)
