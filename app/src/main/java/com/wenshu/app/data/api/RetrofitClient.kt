@@ -63,6 +63,9 @@ object RetrofitClient {
     fun parseError(errorBody: String?): String {
         return try {
             if (errorBody.isNullOrBlank()) return "请求失败，请检查网络连接"
+            if (errorBody.trimStart().startsWith("<!DOCTYPE") || errorBody.trimStart().startsWith("<html")) {
+                return "服务器维护中，请稍后重试"
+            }
             val error = gson.fromJson(errorBody, ApiError::class.java)
             error.error ?: "请求失败"
         } catch (e: Exception) {

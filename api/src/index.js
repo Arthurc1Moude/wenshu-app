@@ -2047,6 +2047,14 @@ app.get('/', (req, res) => {
   res.json({ message: '文书APP API is running', version: '1.1' });
 });
 
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: '接口不存在', path: req.originalUrl });
+});
+
+app.use((req, res) => {
+  res.status(404).json({ error: '接口不存在', path: req.originalUrl });
+});
+
 async function startServer() {
   await initDB();
   await seedInitialData();

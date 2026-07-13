@@ -10,7 +10,7 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <LinearLayout
+        <com.wenshu.app.ui.home.TopBarLayout
             android:id="@+id/top_bar"
             android:layout_width="match_parent"
             android:layout_height="@dimen/toolbar_height"
@@ -46,7 +46,7 @@
                 android:src="@drawable/ic_search"
                 android:layout_marginStart="@dimen/spacing_md"
                 android:contentDescription="@string/search_hint" />
-        </LinearLayout>
+        </com.wenshu.app.ui.home.TopBarLayout>
 
         <View style="@style/Divider" />
 

@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
@@ -24,7 +23,6 @@ import com.wenshu.app.ui.miniapps.MiniAppsActivity
 import com.wenshu.app.ui.official.OfficialPostsActivity
 import com.wenshu.app.ui.search.SearchActivity
 import com.wenshu.app.ui.secret.SecretSpaceActivity
-import kotlin.math.abs
 
 class HomeFragment : Fragment() {
 
@@ -110,11 +108,6 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupTopBarGesture() {
-        var startY = 0f
-        var startX = 0f
-        var isTrackingSwipe = false
-        var hasTriggered = false
-
         val topBar = binding.topBar
 
         topBar.setOnClickListener {
@@ -123,36 +116,9 @@ class HomeFragment : Fragment() {
             }
         }
 
-        topBar.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    startY = event.rawY
-                    startX = event.rawX
-                    isTrackingSwipe = true
-                    hasTriggered = false
-                    false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (isTrackingSwipe && !featuresVisible && !hasTriggered) {
-                        val dy = event.rawY - startY
-                        val dx = event.rawX - startX
-                        if (dy > 80 && dy > abs(dx) * 1.5f) {
-                            hasTriggered = true
-                            showFeaturePanel()
-                            true
-                        } else {
-                            false
-                        }
-                    } else {
-                        false
-                    }
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    isTrackingSwipe = false
-                    hasTriggered = false
-                    false
-                }
-                else -> false
+        topBar.onSwipeDown = {
+            if (!featuresVisible) {
+                showFeaturePanel()
             }
         }
     }
