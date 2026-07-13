@@ -37,6 +37,13 @@
                     app:layout_collapseParallaxMultiplier="0.5"
                     android:contentDescription="@null" />
 
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_profile_cover_shadow"
+                    app:layout_collapseMode="parallax"
+                    app:layout_collapseParallaxMultiplier="0.5" />
+
                 <FrameLayout
                     android:id="@+id/toolbar_layout"
                     android:layout_width="match_parent"
@@ -375,11 +382,23 @@
                             android:orientation="horizontal"
                             android:gravity="center_vertical">
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="🪙"
-                                android:textSize="20sp" />
+                            <FrameLayout
+                                android:layout_width="24dp"
+                                android:layout_height="24dp">
+                                <View
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
+                                    android:background="@drawable/bg_coin_filled" />
+                                <TextView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:gravity="center"
+                                    android:text="文"
+                                    android:textColor="@color/background"
+                                    android:textSize="11sp"
+                                    android:fontFamily="serif"
+                                    android:textStyle="bold" />
+                            </FrameLayout>
 
                             <LinearLayout
                                 android:layout_width="wrap_content"
@@ -420,7 +439,7 @@
                             android:paddingStart="@dimen/spacing_lg"
                             android:paddingEnd="@dimen/spacing_lg"
                             android:textColor="@color/on_primary"
-                            app:cornerRadius="18dp"
+                            app:cornerRadius="2dp"
                             app:backgroundTint="@color/ink"
                             app:elevation="0dp" />
                     </LinearLayout>

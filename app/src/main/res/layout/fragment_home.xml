@@ -11,12 +11,15 @@
         android:orientation="vertical">
 
         <LinearLayout
+            android:id="@+id/top_bar"
             android:layout_width="match_parent"
             android:layout_height="@dimen/toolbar_height"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:paddingStart="@dimen/spacing_lg"
-            android:paddingEnd="@dimen/spacing_lg">
+            android:paddingEnd="@dimen/spacing_lg"
+            android:clickable="true"
+            android:focusable="true">
 
             <HorizontalScrollView
                 android:id="@+id/category_scroll"
@@ -61,223 +64,15 @@
                     android:layout_height="match_parent"
                     android:orientation="vertical">
 
-                    <LinearLayout
-                        android:id="@+id/feature_panel"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:background="@color/background"
-                        android:visibility="gone"
-                        android:paddingStart="@dimen/spacing_lg"
-                        android:paddingEnd="@dimen/spacing_lg"
-                        android:paddingTop="@dimen/spacing_md"
-                        android:paddingBottom="@dimen/spacing_md">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical"
-                            android:layout_marginBottom="@dimen/spacing_md">
-
-                            <TextView
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="文书功能"
-                                android:textColor="@color/text_primary"
-                                android:textSize="@dimen/text_subtitle"
-                                android:fontFamily="sans-serif-medium" />
-
-                            <TextView
-                                android:id="@+id/btn_close_features"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="收起"
-                                android:textColor="@color/text_tertiary"
-                                android:textSize="@dimen/text_caption"
-                                android:padding="@dimen/spacing_sm" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:weightSum="3">
-
-                            <LinearLayout
-                                android:id="@+id/btn_books"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:gravity="center"
-                                android:padding="@dimen/spacing_md">
-
-                                <TextView
-                                    android:layout_width="48dp"
-                                    android:layout_height="48dp"
-                                    android:text="📚"
-                                    android:textSize="28sp"
-                                    android:gravity="center" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="文书阅读"
-                                    android:textColor="@color/text_primary"
-                                    android:textSize="@dimen/text_caption"
-                                    android:layout_marginTop="@dimen/spacing_xs" />
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:id="@+id/btn_novels"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:gravity="center"
-                                android:padding="@dimen/spacing_md">
-
-                                <TextView
-                                    android:layout_width="48dp"
-                                    android:layout_height="48dp"
-                                    android:text="📖"
-                                    android:textSize="28sp"
-                                    android:gravity="center" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="文书小说"
-                                    android:textColor="@color/text_primary"
-                                    android:textSize="@dimen/text_caption"
-                                    android:layout_marginTop="@dimen/spacing_xs" />
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:id="@+id/btn_miniapps"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:gravity="center"
-                                android:padding="@dimen/spacing_md">
-
-                                <TextView
-                                    android:layout_width="48dp"
-                                    android:layout_height="48dp"
-                                    android:text="📱"
-                                    android:textSize="28sp"
-                                    android:gravity="center" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="文书小应用"
-                                    android:textColor="@color/text_primary"
-                                    android:textSize="@dimen/text_caption"
-                                    android:layout_marginTop="@dimen/spacing_xs" />
-                            </LinearLayout>
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:weightSum="3">
-
-                            <LinearLayout
-                                android:id="@+id/btn_world"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:gravity="center"
-                                android:padding="@dimen/spacing_md">
-
-                                <TextView
-                                    android:layout_width="48dp"
-                                    android:layout_height="48dp"
-                                    android:text="🌍"
-                                    android:textSize="28sp"
-                                    android:gravity="center" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="文书天地"
-                                    android:textColor="@color/text_primary"
-                                    android:textSize="@dimen/text_caption"
-                                    android:layout_marginTop="@dimen/spacing_xs" />
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:id="@+id/btn_games"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:gravity="center"
-                                android:padding="@dimen/spacing_md">
-
-                                <TextView
-                                    android:layout_width="48dp"
-                                    android:layout_height="48dp"
-                                    android:text="🎮"
-                                    android:textSize="28sp"
-                                    android:gravity="center" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="文书游戏"
-                                    android:textColor="@color/text_primary"
-                                    android:textSize="@dimen/text_caption"
-                                    android:layout_marginTop="@dimen/spacing_xs" />
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:id="@+id/btn_space"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:gravity="center"
-                                android:padding="@dimen/spacing_md">
-
-                                <TextView
-                                    android:layout_width="48dp"
-                                    android:layout_height="48dp"
-                                    android:text="🔒"
-                                    android:textSize="28sp"
-                                    android:gravity="center" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="文书空间"
-                                    android:textColor="@color/text_primary"
-                                    android:textSize="@dimen/text_caption"
-                                    android:layout_marginTop="@dimen/spacing_xs" />
-                            </LinearLayout>
-                        </LinearLayout>
-
-                        <View
-                            android:layout_width="match_parent"
-                            android:layout_height="@dimen/divider_height"
-                            android:layout_marginTop="@dimen/spacing_sm"
-                            android:background="@color/divider" />
-                    </LinearLayout>
-
                     <TextView
                         android:id="@+id/pull_hint"
                         android:layout_width="match_parent"
                         android:layout_height="36dp"
                         android:gravity="center"
-                        android:text="↓ 下拉查看文书功能"
+                        android:text="下拉刷新内容"
                         android:textColor="@color/text_tertiary"
                         android:textSize="@dimen/text_caption"
+                        android:fontFamily="serif"
                         android:background="?attr/selectableItemBackground" />
 
                     <androidx.recyclerview.widget.RecyclerView
@@ -329,5 +124,258 @@
                 android:indeterminateTint="@color/ink"
                 android:visibility="gone" />
         </FrameLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/feature_panel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@color/background"
+        android:visibility="gone">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/toolbar_height"
+            android:paddingStart="@dimen/spacing_lg"
+            android:paddingEnd="@dimen/spacing_lg">
+
+            <LinearLayout
+                android:id="@+id/btn_close_features"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start|center_vertical"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="@dimen/spacing_sm"
+                android:background="?attr/selectableItemBackgroundBorderless">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_chevron_up"
+                    android:contentDescription="@null" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="2dp"
+                    android:text="收起"
+                    android:textColor="@color/text_tertiary"
+                    android:textSize="@dimen/text_caption"
+                    android:fontFamily="serif" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="文书功能"
+                android:textColor="@color/text_primary"
+                android:textSize="@dimen/text_title"
+                android:fontFamily="serif" />
+        </FrameLayout>
+
+        <View style="@style/Divider" />
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:overScrollMode="never">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/spacing_lg">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:weightSum="3">
+
+                    <LinearLayout
+                        android:id="@+id/btn_books"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="@dimen/spacing_md"
+                        android:background="?attr/selectableItemBackground">
+
+                        <ImageView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:src="@drawable/ic_feature_books"
+                            android:contentDescription="@null" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="文书阅读"
+                            android:textColor="@color/text_primary"
+                            android:textSize="@dimen/text_caption"
+                            android:fontFamily="serif"
+                            android:layout_marginTop="@dimen/spacing_xs" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/btn_novels"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="@dimen/spacing_md"
+                        android:background="?attr/selectableItemBackground">
+
+                        <ImageView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:src="@drawable/ic_feature_novels"
+                            android:contentDescription="@null" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="文书小说"
+                            android:textColor="@color/text_primary"
+                            android:textSize="@dimen/text_caption"
+                            android:fontFamily="serif"
+                            android:layout_marginTop="@dimen/spacing_xs" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/btn_miniapps"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="@dimen/spacing_md"
+                        android:background="?attr/selectableItemBackground">
+
+                        <ImageView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:src="@drawable/ic_feature_miniapps"
+                            android:contentDescription="@null" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="文书小应用"
+                            android:textColor="@color/text_primary"
+                            android:textSize="@dimen/text_caption"
+                            android:fontFamily="serif"
+                            android:layout_marginTop="@dimen/spacing_xs" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:weightSum="3"
+                    android:layout_marginTop="@dimen/spacing_md">
+
+                    <LinearLayout
+                        android:id="@+id/btn_world"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="@dimen/spacing_md"
+                        android:background="?attr/selectableItemBackground">
+
+                        <ImageView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:src="@drawable/ic_feature_world"
+                            android:contentDescription="@null" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="文书天地"
+                            android:textColor="@color/text_primary"
+                            android:textSize="@dimen/text_caption"
+                            android:fontFamily="serif"
+                            android:layout_marginTop="@dimen/spacing_xs" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/btn_games"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="@dimen/spacing_md"
+                        android:background="?attr/selectableItemBackground">
+
+                        <ImageView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:src="@drawable/ic_feature_games"
+                            android:contentDescription="@null" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="文书游戏"
+                            android:textColor="@color/text_primary"
+                            android:textSize="@dimen/text_caption"
+                            android:fontFamily="serif"
+                            android:layout_marginTop="@dimen/spacing_xs" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/btn_space"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="@dimen/spacing_md"
+                        android:background="?attr/selectableItemBackground">
+
+                        <ImageView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:src="@drawable/ic_feature_space"
+                            android:contentDescription="@null" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="文书空间"
+                            android:textColor="@color/text_primary"
+                            android:textSize="@dimen/text_caption"
+                            android:fontFamily="serif"
+                            android:layout_marginTop="@dimen/spacing_xs" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/divider_height"
+                    android:layout_marginTop="@dimen/spacing_lg"
+                    android:background="@color/divider" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_md"
+                    android:text="下拉刷新获取最新内容，点击图标进入对应功能"
+                    android:textColor="@color/text_tertiary"
+                    android:textSize="@dimen/text_micro"
+                    android:fontFamily="serif"
+                    android:gravity="center" />
+            </LinearLayout>
+        </ScrollView>
     </LinearLayout>
 </FrameLayout>

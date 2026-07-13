@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.bumptech.glide.Glide
 import com.wenshu.app.R
 import com.wenshu.app.data.api.RetrofitClient
 import com.wenshu.app.data.api.safeApiCall
@@ -36,7 +37,7 @@ class MiniAppsActivity : AppCompatActivity() {
         swipe = findViewById(R.id.swipe_refresh)
         findViewById<ImageView>(R.id.btn_back).setOnClickListener { finish() }
         findViewById<TextView>(R.id.tv_title).text = "文书小应用"
-        findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.fab_publish).setOnClickListener { showPublishDialog() }
+        findViewById<ImageView>(R.id.fab_publish).setOnClickListener { showPublishDialog() }
         adapter = MyAdapter { item ->
             startActivity(Intent(this, WebViewActivity::class.java).putExtra("title", item.name).putExtra("url", item.url))
         }
@@ -78,7 +79,7 @@ class MiniAppsActivity : AppCompatActivity() {
         private val items = mutableListOf<MiniApp>()
         fun update(list: List<MiniApp>) { items.clear(); items.addAll(list); notifyDataSetChanged() }
         class AppVH(v: View) : RecyclerView.ViewHolder(v) {
-            val icon = v.findViewById<TextView>(R.id.tv_icon)
+            val imgIcon = v.findViewById<ImageView>(R.id.img_icon)
             val name = v.findViewById<TextView>(R.id.tv_name)
             val desc = v.findViewById<TextView>(R.id.tv_desc)
             val meta = v.findViewById<TextView>(R.id.tv_meta)
@@ -89,10 +90,14 @@ class MiniAppsActivity : AppCompatActivity() {
         override fun getItemCount() = items.size
         override fun onBindViewHolder(h: AppVH, pos: Int) {
             val item = items[pos]
-            h.icon.text = item.icon.ifEmpty { "📱" }
             h.name.text = item.name
             h.desc.text = item.description
             h.meta.text = item.developerName
+            if (item.icon.isNotEmpty()) {
+                Glide.with(h.imgIcon).load(item.icon).into(h.imgIcon)
+            } else {
+                h.imgIcon.setImageResource(R.drawable.ic_app_placeholder)
+            }
             h.itemView.setOnClickListener { onClick(item) }
         }
     }

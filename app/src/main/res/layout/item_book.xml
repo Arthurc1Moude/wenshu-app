@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="@dimen/spacing_md"
-    app:cardCornerRadius="12dp"
+    app:cardCornerRadius="@dimen/card_radius"
     app:cardElevation="0dp"
     app:cardBackgroundColor="@color/surface"
     app:strokeWidth="0dp">
@@ -18,15 +18,14 @@
         <FrameLayout
             android:layout_width="80dp"
             android:layout_height="110dp"
-            android:background="@drawable/bg_input">
+            android:background="@color/background">
 
-            <TextView
-                android:id="@+id/tv_icon"
+            <ImageView
+                android:id="@+id/img_icon"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="📖"
-                android:textSize="36sp" />
+                android:src="@drawable/ic_book_placeholder"
+                android:scaleType="center" />
 
             <ImageView
                 android:id="@+id/img_cover"
@@ -49,7 +48,7 @@
                 android:layout_height="wrap_content"
                 android:textColor="@color/text_primary"
                 android:textSize="@dimen/text_subtitle"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="serif"
                 android:maxLines="2"
                 android:ellipsize="end" />
 
@@ -59,7 +58,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/spacing_xs"
                 android:textColor="@color/text_secondary"
-                android:textSize="@dimen/text_caption" />
+                android:textSize="@dimen/text_caption"
+                android:fontFamily="serif" />
 
             <TextView
                 android:id="@+id/tv_desc"
@@ -68,6 +68,7 @@
                 android:layout_marginTop="@dimen/spacing_xs"
                 android:textColor="@color/text_tertiary"
                 android:textSize="@dimen/text_caption"
+                android:fontFamily="serif"
                 android:maxLines="2"
                 android:ellipsize="end" />
 
@@ -85,6 +86,7 @@
                     android:textColor="@color/primary"
                     android:textSize="@dimen/text_caption"
                     android:background="@drawable/bg_chip"
+                    android:fontFamily="serif"
                     android:paddingStart="@dimen/spacing_sm"
                     android:paddingEnd="@dimen/spacing_sm"
                     android:paddingTop="2dp"
@@ -98,16 +100,17 @@
                     android:layout_marginStart="@dimen/spacing_sm"
                     android:textColor="@color/text_tertiary"
                     android:textSize="@dimen/text_caption"
+                    android:fontFamily="serif"
                     android:gravity="end" />
 
-                <TextView
-                    android:id="@+id/tv_private"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                <ImageView
+                    android:id="@+id/img_private"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
                     android:layout_marginStart="@dimen/spacing_sm"
-                    android:text="🔒"
-                    android:textSize="@dimen/text_caption"
-                    android:visibility="gone" />
+                    android:src="@drawable/ic_lock"
+                    android:visibility="gone"
+                    android:contentDescription="@null" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

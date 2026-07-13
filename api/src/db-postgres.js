@@ -72,6 +72,8 @@ export async function initTables() {
         like_count INTEGER DEFAULT 0,
         comment_count INTEGER DEFAULT 0,
         collect_count INTEGER DEFAULT 0,
+        coin_count INTEGER DEFAULT 0,
+        tipped_by JSONB DEFAULT '[]'::jsonb,
         created_at BIGINT
       )
     `);
@@ -283,6 +285,9 @@ export async function initTables() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id)`);
 
+    await client.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS coin_count INTEGER DEFAULT 0`);
+    await client.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS tipped_by JSONB DEFAULT '[]'::jsonb`);
+
     console.log('✅ PostgreSQL tables initialized');
   } finally {
     client.release();
@@ -333,6 +338,8 @@ function rowToPost(row) {
     likeCount: row.like_count || 0,
     commentCount: row.comment_count || 0,
     collectCount: row.collect_count || 0,
+    coinCount: row.coin_count || 0,
+    tippedBy: row.tipped_by || [],
     createdAt: row.created_at,
   };
 }
@@ -493,15 +500,17 @@ export async function pgGetPosts() {
 
 export async function pgSavePost(post) {
   await pool.query(`
-    INSERT INTO posts (id, author_id, title, content, images, tags, like_count, comment_count, collect_count, created_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    INSERT INTO posts (id, author_id, title, content, images, tags, like_count, comment_count, collect_count, coin_count, tipped_by, created_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
     ON CONFLICT (id) DO UPDATE SET
       title = EXCLUDED.title, content = EXCLUDED.content, images = EXCLUDED.images, tags = EXCLUDED.tags,
-      like_count = EXCLUDED.like_count, comment_count = EXCLUDED.comment_count, collect_count = EXCLUDED.collect_count
+      like_count = EXCLUDED.like_count, comment_count = EXCLUDED.comment_count, collect_count = EXCLUDED.collect_count,
+      coin_count = EXCLUDED.coin_count, tipped_by = EXCLUDED.tipped_by
   `, [
     post.id, post.authorId, post.title || '', post.content,
     JSON.stringify(post.images || []), JSON.stringify(post.tags || []),
-    post.likeCount || 0, post.commentCount || 0, post.collectCount || 0, post.createdAt
+    post.likeCount || 0, post.commentCount || 0, post.collectCount || 0,
+    post.coinCount || 0, JSON.stringify(post.tippedBy || []), post.createdAt
   ]);
 }
 

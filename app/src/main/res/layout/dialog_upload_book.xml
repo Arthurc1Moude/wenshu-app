@@ -64,7 +64,7 @@
             android:layout_height="48dp"
             android:layout_marginTop="@dimen/spacing_md"
             android:gravity="center"
-            android:text="📎 上传图书文件（txt/epub/pdf）"
+            android:text="选择文件上传（txt/epub/pdf）"
             android:textColor="@color/primary"
             android:background="@drawable/bg_input"
             android:clickable="true"

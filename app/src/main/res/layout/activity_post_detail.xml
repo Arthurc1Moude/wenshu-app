@@ -339,6 +339,36 @@
                 </LinearLayout>
 
                 <LinearLayout
+                    android:id="@+id/layout_coin"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="@dimen/spacing_xs">
+
+                    <FrameLayout
+                        android:id="@+id/coin_icon_container"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp">
+                        <View
+                            android:id="@+id/bg_coin_icon_detail"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:background="@drawable/bg_coin_outline" />
+                        <TextView
+                            android:id="@+id/tv_coin_symbol_detail"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:text="文"
+                            android:textColor="@color/ink"
+                            android:textSize="11sp"
+                            android:fontFamily="serif"
+                            android:textStyle="bold" />
+                    </FrameLayout>
+                </LinearLayout>
+
+                <LinearLayout
                     android:id="@+id/layout_collect"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

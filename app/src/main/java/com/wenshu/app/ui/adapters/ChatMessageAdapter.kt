@@ -53,6 +53,13 @@ class ChatMessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(Mes
 
     private fun bindReceivedMessage(binding: ItemMessageReceivedBinding, message: ChatMessage) {
         binding.tvMessage.text = message.content
+        val name = message.senderName
+        if (!name.isNullOrEmpty()) {
+            binding.tvUsername.visibility = android.view.View.VISIBLE
+            binding.tvUsername.text = "@$name"
+        } else {
+            binding.tvUsername.visibility = android.view.View.GONE
+        }
         Glide.with(binding.imgAvatar.context)
             .load(ImageUtils.normalizeUrl(message.senderAvatar))
             .placeholder(R.drawable.bg_avatar_placeholder)

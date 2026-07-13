@@ -31,11 +31,32 @@ class NotificationAdapter(
             dotUnread.visibility = if (notif.isRead) View.GONE else View.VISIBLE
             imgPostCover.visibility = View.GONE
 
-            if (notif.type == "system") {
-                imgAvatar.setImageResource(R.drawable.ic_settings)
-                imgAvatar.setBackgroundResource(R.color.paper)
+            val systemTypes = setOf("system", "vip", "redeem_success", "signin", "reward")
+            val isSystemNotification = notif.type in systemTypes
+            val isTipNotification = notif.type == "tip"
+
+            if (isSystemNotification) {
+                tvUsername.visibility = View.GONE
                 imgAvatar.setPadding(16, 16, 16, 16)
+                imgAvatar.setBackgroundResource(R.color.paper)
+                imgAvatar.setImageResource(R.drawable.ic_settings)
+            } else if (isTipNotification) {
+                if (notif.fromUser != null) {
+                    tvUsername.visibility = View.VISIBLE
+                    tvUsername.text = "@${notif.fromUser.username}"
+                } else {
+                    tvUsername.visibility = View.GONE
+                }
+                imgAvatar.setPadding(0, 0, 0, 0)
+                imgAvatar.setBackgroundResource(R.drawable.bg_coin_filled)
+                imgAvatar.setImageDrawable(null)
             } else {
+                if (notif.fromUser != null) {
+                    tvUsername.visibility = View.VISIBLE
+                    tvUsername.text = "@${notif.fromUser.username}"
+                } else {
+                    tvUsername.visibility = View.GONE
+                }
                 imgAvatar.setPadding(0, 0, 0, 0)
                 imgAvatar.setBackgroundResource(R.drawable.bg_avatar_placeholder)
                 notif.fromUser?.let { user ->

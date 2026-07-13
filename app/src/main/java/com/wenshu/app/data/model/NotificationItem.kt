@@ -17,10 +17,16 @@ data class NotificationItem(
     fun getTypeString(): String = when (type) {
         "like" -> "赞了你的帖子"
         "comment" -> "评论/回复了你"
+        "comment_like" -> "赞了你的评论"
         "follow" -> "关注了你"
-        "vip" -> "会员通知"
-        "redeem_success" -> "兑换成功"
-        "system" -> "系统通知"
+        "tip" -> content.ifEmpty { "向你的帖子投入了文书币" }
+        "vip" -> content.ifEmpty { "会员通知" }
+        "redeem_success" -> content.ifEmpty { "兑换成功" }
+        "signin" -> content.ifEmpty { "签到成功" }
+        "reward" -> content.ifEmpty { "获得奖励" }
+        "group_invite" -> content.ifEmpty { "邀请你加入群聊" }
+        "group_join" -> content.ifEmpty { "加入了你的群聊" }
+        "system" -> content.ifEmpty { "系统通知" }
         else -> content
     }
 }

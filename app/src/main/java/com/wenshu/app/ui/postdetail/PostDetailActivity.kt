@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
 import com.wenshu.app.R
+import com.wenshu.app.data.SharedPreferencesManager
 import com.wenshu.app.data.model.Comment
 import com.wenshu.app.data.model.Post
 import com.wenshu.app.databinding.ActivityPostDetailBinding
@@ -98,6 +99,7 @@ class PostDetailActivity : AppCompatActivity() {
     }
 
     private fun setupDoubleTapLike() {
+        if (!SharedPreferencesManager.isDoubleTapToLikeEnabled()) return
         val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDoubleTap(e: MotionEvent): Boolean {
                 if (currentPost?.isLiked != true) {
@@ -170,6 +172,7 @@ class PostDetailActivity : AppCompatActivity() {
     private fun setupActions() {
         binding.layoutLike.setOnClickListener { toggleLike() }
         binding.layoutCollect.setOnClickListener { toggleCollect() }
+        binding.layoutCoin.setOnClickListener { tipPost() }
         binding.layoutComment.setOnClickListener {
             binding.etComment.requestFocus()
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
@@ -269,6 +272,7 @@ class PostDetailActivity : AppCompatActivity() {
 
             updateLikeState(post.isLiked, post.likeCount)
             updateCollectState(post.isCollected, post.collectCount)
+            updateCoinState(post.isTipped)
             tvLikeCountDetail.text = post.likeCount.toString()
 
             layoutTags.removeAllViews()
@@ -296,6 +300,22 @@ class PostDetailActivity : AppCompatActivity() {
         val post = currentPost ?: return
         viewModel.toggleCollect()
         animateButton(binding.imgCollect)
+    }
+
+    private fun tipPost() {
+        val amount = SharedPreferencesManager.getDefaultTipAmount()
+        viewModel.tipPost(amount)
+        animateButton(binding.coinIconContainer)
+    }
+
+    private fun updateCoinState(isTipped: Boolean) {
+        if (isTipped) {
+            binding.bgCoinIconDetail.setBackgroundResource(R.drawable.bg_coin_filled)
+            binding.tvCoinSymbolDetail.setTextColor(ContextCompat.getColor(this, R.color.background))
+        } else {
+            binding.bgCoinIconDetail.setBackgroundResource(R.drawable.bg_coin_outline)
+            binding.tvCoinSymbolDetail.setTextColor(ContextCompat.getColor(this, R.color.ink))
+        }
     }
 
     private fun animateButton(view: View) {

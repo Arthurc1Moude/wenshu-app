@@ -39,6 +39,7 @@ let memGroupChats = [];
 let memGroupMembers = [];
 let memRegisterCount = 0;
 let memVerifCodes = [];
+let memTips = [];
 let useMem = false;
 
 function uid(prefix) { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -297,6 +298,12 @@ export async function generateGroupNumber() {
     return Math.floor(1000000 + Math.random() * 9000000).toString();
   }
   return pgGenerateGroupNumber();
+}
+
+export function getTips() { return useMem ? [...memTips] : []; }
+export function addTip(tip) {
+  if (useMem) { memTips.push(tip); return tip; }
+  return tip;
 }
 
 export async function seedInitialData() {

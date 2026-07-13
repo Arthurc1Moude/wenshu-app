@@ -15,11 +15,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.bumptech.glide.Glide
 import com.wenshu.app.R
 import com.wenshu.app.data.api.RetrofitClient
 import com.wenshu.app.data.api.safeApiCall
 import com.wenshu.app.data.model.Game
 import com.wenshu.app.ui.web.WebViewActivity
+import com.wenshu.app.util.ImageUtils
 import kotlinx.coroutines.launch
 
 class GamesActivity : AppCompatActivity() {
@@ -84,7 +86,7 @@ class GamesActivity : AppCompatActivity() {
 
     class Adapter(private val list: List<Game>, private val onClick: (Game) -> Unit) : RecyclerView.Adapter<Adapter.GameVH>() {
         class GameVH(v: View) : RecyclerView.ViewHolder(v) {
-            val icon = v.findViewById<TextView>(R.id.tv_icon)
+            val imgIcon = v.findViewById<ImageView>(R.id.img_icon)
             val name = v.findViewById<TextView>(R.id.tv_name)
             val desc = v.findViewById<TextView>(R.id.tv_desc)
             val meta = v.findViewById<TextView>(R.id.tv_meta)
@@ -95,10 +97,19 @@ class GamesActivity : AppCompatActivity() {
         override fun getItemCount() = list.size
         override fun onBindViewHolder(h: GameVH, pos: Int) {
             val item = list[pos]
-            h.icon.text = item.icon.ifEmpty { "🎮" }
             h.name.text = item.name
             h.desc.text = item.description
             h.meta.text = "${item.developerName} · ${item.plays}次游玩"
+            if (item.icon.isNotEmpty()) {
+                Glide.with(h.imgIcon)
+                    .load(ImageUtils.normalizeUrl(item.icon))
+                    .placeholder(R.drawable.ic_app_placeholder)
+                    .error(R.drawable.ic_app_placeholder)
+                    .centerCrop()
+                    .into(h.imgIcon)
+            } else {
+                h.imgIcon.setImageResource(R.drawable.ic_app_placeholder)
+            }
             h.itemView.setOnClickListener { onClick(item) }
         }
     }

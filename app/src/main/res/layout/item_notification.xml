@@ -41,6 +41,15 @@
         android:layout_marginEnd="@dimen/spacing_md">
 
         <TextView
+            android:id="@+id/tv_username"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_tertiary"
+            android:textSize="@dimen/text_caption"
+            android:fontFamily="serif"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/tv_content"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

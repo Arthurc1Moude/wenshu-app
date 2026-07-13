@@ -4,8 +4,10 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -22,6 +24,7 @@ import com.wenshu.app.ui.miniapps.MiniAppsActivity
 import com.wenshu.app.ui.official.OfficialPostsActivity
 import com.wenshu.app.ui.search.SearchActivity
 import com.wenshu.app.ui.secret.SecretSpaceActivity
+import kotlin.math.abs
 
 class HomeFragment : Fragment() {
 
@@ -43,6 +46,7 @@ class HomeFragment : Fragment() {
         setupRecyclerView()
         setupTabs()
         setupSwipeRefresh()
+        setupTopBarGesture()
         setupRetryButton()
         setupFeaturePanel()
         observeData()
@@ -54,6 +58,10 @@ class HomeFragment : Fragment() {
         postAdapter = PostCardAdapter(
             onPostClick = { post -> (activity as? MainActivity)?.navigateToPostDetail(post.id) },
             onLikeClick = { post -> viewModel.toggleLike(post.id) },
+            onCoinClick = { post ->
+                val amount = com.wenshu.app.data.SharedPreferencesManager.getDefaultTipAmount()
+                viewModel.tipPost(post.id, amount)
+            },
             onUserClick = { (activity as? MainActivity)?.selectTab(R.id.nav_profile) }
         )
         binding.recyclerPosts.apply {
@@ -90,16 +98,67 @@ class HomeFragment : Fragment() {
     private fun setupSwipeRefresh() {
         binding.swipeRefresh.setColorSchemeColors(ContextCompat.getColor(requireContext(), R.color.seal))
         binding.swipeRefresh.setOnRefreshListener {
-            toggleFeaturePanel()
-            viewModel.refresh()
+            if (featuresVisible) {
+                binding.swipeRefresh.isRefreshing = false
+            } else {
+                viewModel.refresh()
+            }
         }
         binding.btnSearch.setOnClickListener {
             startActivity(Intent(requireContext(), SearchActivity::class.java))
         }
     }
 
+    private fun setupTopBarGesture() {
+        var startY = 0f
+        var startX = 0f
+        var isTrackingSwipe = false
+        var hasTriggered = false
+
+        val topBar = binding.topBar
+
+        topBar.setOnClickListener {
+            if (!featuresVisible) {
+                toggleFeaturePanel()
+            }
+        }
+
+        topBar.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    startY = event.rawY
+                    startX = event.rawX
+                    isTrackingSwipe = true
+                    hasTriggered = false
+                    false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (isTrackingSwipe && !featuresVisible && !hasTriggered) {
+                        val dy = event.rawY - startY
+                        val dx = event.rawX - startX
+                        if (dy > 80 && dy > abs(dx) * 1.5f) {
+                            hasTriggered = true
+                            showFeaturePanel()
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    isTrackingSwipe = false
+                    hasTriggered = false
+                    false
+                }
+                else -> false
+            }
+        }
+    }
+
     private fun setupFeaturePanel() {
-        binding.pullHint.setOnClickListener { toggleFeaturePanel() }
+        binding.pullHint.setOnClickListener { }
         binding.btnCloseFeatures.setOnClickListener { hideFeaturePanel() }
         binding.btnBooks.setOnClickListener { startActivity(Intent(requireContext(), BooksActivity::class.java).putExtra("type", "book")) }
         binding.btnNovels.setOnClickListener { startActivity(Intent(requireContext(), BooksActivity::class.java).putExtra("type", "novel")) }
@@ -112,14 +171,36 @@ class HomeFragment : Fragment() {
     private fun showFeaturePanel() {
         if (featuresVisible) return
         featuresVisible = true
-        binding.featurePanel.visibility = View.VISIBLE
-        binding.pullHint.text = "↑ 收起功能面板"
+        val panel = binding.featurePanel
+        panel.visibility = View.VISIBLE
+        panel.post {
+            val height = panel.height.toFloat()
+            if (height > 0) {
+                panel.translationY = -height
+                panel.animate()
+                    .translationY(0f)
+                    .setDuration(280)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator())
+                    .start()
+            }
+        }
+        binding.swipeRefresh.isRefreshing = false
     }
 
     private fun hideFeaturePanel() {
-        featuresVisible = false
-        binding.featurePanel.visibility = View.GONE
-        binding.pullHint.text = "↓ 下拉查看文书功能"
+        if (!featuresVisible) return
+        val panel = binding.featurePanel
+        val height = if (panel.height > 0) panel.height.toFloat() else resources.displayMetrics.heightPixels.toFloat()
+        panel.animate()
+            .translationY(-height)
+            .setDuration(220)
+            .setInterpolator(android.view.animation.AccelerateInterpolator())
+            .withEndAction {
+                panel.visibility = View.GONE
+                panel.translationY = 0f
+                featuresVisible = false
+            }
+            .start()
     }
 
     private fun toggleFeaturePanel() {
@@ -140,7 +221,9 @@ class HomeFragment : Fragment() {
         }
         viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
             Log.d("HomeFragment", "Loading: $isLoading")
-            binding.swipeRefresh.isRefreshing = isLoading
+            if (!featuresVisible) {
+                binding.swipeRefresh.isRefreshing = isLoading
+            }
             val shouldShowLoading = isLoading && postAdapter.itemCount == 0
             binding.progressLoading.visibility = if (shouldShowLoading) View.VISIBLE else View.GONE
             if (!isLoading) {
@@ -162,6 +245,16 @@ class HomeFragment : Fragment() {
                     }
                 }
                 viewModel.clearError()
+            }
+        }
+        viewModel.tipResult.observe(viewLifecycleOwner) { msg ->
+            msg?.let {
+                try {
+                    Snackbar.make(binding.root, it, Snackbar.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                }
+                viewModel.clearTipResult()
             }
         }
     }

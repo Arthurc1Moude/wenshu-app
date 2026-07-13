@@ -57,8 +57,7 @@ class BooksActivity : AppCompatActivity() {
 
         tvTitle.text = if (bookType == "novel") "文书小说" else "文书阅读"
         findViewById<ImageView>(R.id.btn_back).setOnClickListener { finish() }
-        val fab = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.fab_upload)
-        fab.setOnClickListener { showUploadDialog() }
+        findViewById<ImageView>(R.id.fab_upload).setOnClickListener { showUploadDialog() }
 
         adapter = BookAdapter(books) { book -> openBook(book) }
         recycler.layoutManager = LinearLayoutManager(this)
@@ -176,14 +175,14 @@ class BooksActivity : AppCompatActivity() {
 
     class BookAdapter(private val items: List<Book>, private val onClick: (Book) -> Unit) : RecyclerView.Adapter<BookAdapter.BookVH>() {
         class BookVH(v: View) : RecyclerView.ViewHolder(v) {
-            val tvIcon = v.findViewById<TextView>(R.id.tv_icon)
+            val imgIcon = v.findViewById<ImageView>(R.id.img_icon)
             val imgCover = v.findViewById<ImageView>(R.id.img_cover)
             val tvTitle = v.findViewById<TextView>(R.id.tv_title)
             val tvAuthor = v.findViewById<TextView>(R.id.tv_author)
             val tvDesc = v.findViewById<TextView>(R.id.tv_desc)
             val tvCategory = v.findViewById<TextView>(R.id.tv_category)
             val tvStats = v.findViewById<TextView>(R.id.tv_stats)
-            val tvPrivate = v.findViewById<TextView>(R.id.tv_private)
+            val imgPrivate = v.findViewById<ImageView>(R.id.img_private)
         }
         override fun onCreateViewHolder(p: ViewGroup, t: Int): BookVH {
             return BookVH(LayoutInflater.from(p.context).inflate(R.layout.item_book, p, false))
@@ -196,9 +195,16 @@ class BooksActivity : AppCompatActivity() {
             h.tvDesc.text = b.description.ifEmpty { "暂无简介" }
             h.tvCategory.text = if (b.category == "novel") "小说" else "图书"
             h.tvStats.text = "${b.readCount}阅读"
-            h.tvPrivate.visibility = if (b.isPrivate) View.VISIBLE else View.GONE
-            if (b.coverUrl.isNotEmpty()) { h.imgCover.visibility = View.VISIBLE; h.tvIcon.visibility = View.GONE; Glide.with(h.imgCover).load(b.coverUrl).into(h.imgCover) }
-            else { h.imgCover.visibility = View.GONE; h.tvIcon.visibility = View.VISIBLE }
+            h.imgPrivate.visibility = if (b.isPrivate) View.VISIBLE else View.GONE
+            if (b.coverUrl.isNotEmpty()) {
+                h.imgCover.visibility = View.VISIBLE
+                h.imgIcon.visibility = View.GONE
+                Glide.with(h.imgCover).load(b.coverUrl).into(h.imgCover)
+            } else {
+                h.imgCover.visibility = View.GONE
+                h.imgIcon.visibility = View.VISIBLE
+                h.imgIcon.setImageResource(R.drawable.ic_book_placeholder)
+            }
             h.itemView.setOnClickListener { onClick(b) }
         }
     }

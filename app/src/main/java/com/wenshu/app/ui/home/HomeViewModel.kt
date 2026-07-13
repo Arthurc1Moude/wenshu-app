@@ -19,6 +19,9 @@ class HomeViewModel : ViewModel() {
     private val _currentTab = MutableLiveData(0)
     val currentTab: LiveData<Int> = _currentTab
 
+    private val _tipResult = MutableLiveData<String?>()
+    val tipResult: LiveData<String?> = _tipResult
+
     private var currentSort = "new"
 
     init {
@@ -57,6 +60,21 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             repository.toggleCollect(postId)
         }
+    }
+
+    fun tipPost(postId: String, amount: Int) {
+        viewModelScope.launch {
+            val result = repository.tipPost(postId, amount)
+            result.onSuccess { resp ->
+                _tipResult.postValue("投入${resp.amount}文书币")
+            }.onFailure { e ->
+                _tipResult.postValue(e.message ?: "投币失败，请稍后再试")
+            }
+        }
+    }
+
+    fun clearTipResult() {
+        _tipResult.value = null
     }
 
     fun clearError() {

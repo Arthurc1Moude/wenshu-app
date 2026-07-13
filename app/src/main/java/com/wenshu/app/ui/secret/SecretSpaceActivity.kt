@@ -296,10 +296,10 @@ class SecretSpaceActivity : AppCompatActivity() {
             h.tvContent.text = item.content
             h.tvTime.text = TimeUtils.formatRelativeTime(item.createdAt)
             h.tvVisibility.text = when (item.visibility) {
-                "private" -> "🔒 私密"
-                "mutual" -> "👥 互关可见"
-                "specified" -> "👤 指定可见"
-                else -> "🔒 私密"
+                "private" -> "私密"
+                "mutual" -> "互关可见"
+                "specified" -> "指定可见"
+                else -> "私密"
             }
         }
     }

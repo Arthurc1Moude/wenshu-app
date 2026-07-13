@@ -39,16 +39,26 @@ class PostDetailViewModel : ViewModel() {
     fun toggleLike() {
         val currentPost = post.value ?: return
         viewModelScope.launch {
-            val result = repository.toggleLike(currentPost.id)
-            result.onFailure { _actionResult.postValue(it.message) }
+            repository.toggleLike(currentPost.id)
         }
     }
 
     fun toggleCollect() {
         val currentPost = post.value ?: return
         viewModelScope.launch {
-            val result = repository.toggleCollect(currentPost.id)
-            result.onFailure { _actionResult.postValue(it.message) }
+            repository.toggleCollect(currentPost.id)
+        }
+    }
+
+    fun tipPost(amount: Int) {
+        val currentPost = post.value ?: return
+        viewModelScope.launch {
+            val result = repository.tipPost(currentPost.id, amount)
+            result.onSuccess { resp ->
+                _actionResult.postValue("投入${resp.amount}文书币")
+            }.onFailure { e ->
+                _actionResult.postValue(e.message ?: "投币失败，请稍后再试")
+            }
         }
     }
 
@@ -57,14 +67,12 @@ class PostDetailViewModel : ViewModel() {
         viewModelScope.launch {
             val result = repository.addComment(currentPost.id, content, replyToId)
             result.onSuccess { _commentAdded.postValue(true) }
-                .onFailure { _actionResult.postValue(it.message) }
         }
     }
 
     fun toggleCommentLike(commentId: String) {
         viewModelScope.launch {
-            val result = repository.toggleCommentLike(commentId)
-            result.onFailure { _actionResult.postValue(it.message) }
+            repository.toggleCommentLike(commentId)
         }
     }
 

@@ -9,10 +9,12 @@ data class Post(
     val likeCount: Int = 0,
     val commentCount: Int = 0,
     val collectCount: Int = 0,
+    val coinCount: Int = 0,
     val createdAt: Long = 0,
     val author: User? = null,
     val isLiked: Boolean = false,
-    val isCollected: Boolean = false
+    val isCollected: Boolean = false,
+    val isTipped: Boolean = false
 ) {
     val firstImage: String? get() = images.firstOrNull()
     val imageCount: Int get() = images.size

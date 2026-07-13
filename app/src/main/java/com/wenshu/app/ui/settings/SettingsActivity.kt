@@ -67,6 +67,10 @@ class SettingsActivity : AppCompatActivity() {
             showNotificationSettings()
         }
 
+        binding.itemPostSettings.setOnClickListener {
+            startActivity(Intent(this, PostSettingsActivity::class.java))
+        }
+
         binding.itemPrivacy.setOnClickListener {
             showPrivacySettings()
         }

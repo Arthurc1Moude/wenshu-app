@@ -26,7 +26,8 @@ import {
   findUserByPhone,
   getCommentLikes, addCommentLike, removeCommentLike, isCommentLikedByUser, getCommentLikeCount,
   getGroupChats, getGroupChatById, getGroupChatByNumber, saveGroupChat,
-  getGroupMembers, getUserGroups, addGroupMember, removeGroupMember, isGroupMember, generateGroupNumber
+  getGroupMembers, getUserGroups, addGroupMember, removeGroupMember, isGroupMember, generateGroupNumber,
+  getTips, addTip
 } from './db.js';
 
 import {
@@ -192,13 +193,19 @@ function generateUsernameSuggestions(baseUsername, existingUsers, count = 5) {
   return suggestions.slice(0, count);
 }
 
-function decoratePost(post, currentUserId, users, likes, collects) {
+function decoratePost(post, currentUserId, users, likes, collects, tips) {
   const author = users.find(u => u.id === post.authorId);
+  const postTips = tips ? tips.filter(t => t.postId === post.id) : [];
+  const coinCount = post.coinCount != null ? post.coinCount : postTips.reduce((sum, t) => sum + (t.amount || 0), 0);
+  const tippedBy = post.tippedBy || (tips ? tips.filter(t => t.postId === post.id).map(t => t.userId) : []);
+  const isTipped = currentUserId ? (tippedBy.includes(currentUserId) || (tips ? tips.some(t => t.postId === post.id && t.userId === currentUserId) : false)) : false;
   return {
     ...post,
+    coinCount,
     author: author ? getUserPublic(author) : null,
     isLiked: currentUserId ? likes.some(l => l.postId === post.id && l.userId === currentUserId) : false,
     isCollected: currentUserId ? collects.some(c => c.postId === post.id && c.userId === currentUserId) : false,
+    isTipped,
   };
 }
 
@@ -687,6 +694,7 @@ app.get('/api/posts', async (req, res) => {
     const likes = await getLikes();
     const collects = await getCollects();
     const blacklists = await getBlacklists();
+    const tipsList = getTips();
 
     if (currentUserId) {
       const blockedUserIds = blacklists.filter(b => b.userId === currentUserId).map(b => b.blockedUserId);
@@ -697,12 +705,12 @@ app.get('/api/posts', async (req, res) => {
     if (userId) posts = posts.filter(p => p.authorId === userId);
 
     if (sort === 'hot') {
-      posts = [...posts].sort((a, b) => (b.likeCount * 3 + b.commentCount * 2 + b.collectCount) - (a.likeCount * 3 + a.commentCount * 2 + a.collectCount));
+      posts = [...posts].sort((a, b) => (b.likeCount * 3 + b.commentCount * 2 + b.collectCount + b.coinCount * 5) - (a.likeCount * 3 + a.commentCount * 2 + a.collectCount + a.coinCount * 5));
     } else {
       posts = [...posts].sort((a, b) => b.createdAt - a.createdAt);
     }
 
-    res.json(posts.map(p => decoratePost(p, currentUserId, users, likes, collects)));
+    res.json(posts.map(p => decoratePost(p, currentUserId, users, likes, collects, tipsList)));
   } catch (e) {
     console.error('Get posts error:', e);
     res.status(500).json({ error: '服务器错误' });
@@ -716,9 +724,10 @@ app.get('/api/posts/:id', async (req, res) => {
     const users = await getUsers();
     const likes = await getLikes();
     const collects = await getCollects();
+    const tipsList = getTips();
     const post = posts.find(p => p.id === req.params.id);
     if (!post) return res.status(404).json({ error: '帖子不存在' });
-    res.json(decoratePost(post, currentUserId, users, likes, collects));
+    res.json(decoratePost(post, currentUserId, users, likes, collects, tipsList));
   } catch (e) {
     console.error('Get post error:', e);
     res.status(500).json({ error: '服务器错误' });
@@ -745,6 +754,8 @@ app.post('/api/posts', async (req, res) => {
       likeCount: 0,
       commentCount: 0,
       collectCount: 0,
+      coinCount: 0,
+      tippedBy: [],
       createdAt: Date.now()
     };
     await savePost(post);
@@ -771,6 +782,7 @@ app.post('/api/posts', async (req, res) => {
       author: getUserPublic(user),
       isLiked: false,
       isCollected: false,
+      isTipped: false,
     });
   } catch (e) {
     console.error('Create post error:', e);
@@ -841,6 +853,83 @@ app.post('/api/posts/:id/collect', async (req, res) => {
     res.json({ collectCount: post.collectCount, isCollected });
   } catch (e) {
     console.error('Collect error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// ========== TIP / 投币 ==========
+app.post('/api/posts/:id/tip', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    const banCheck = await checkBanned(userId);
+    if (banCheck) return res.status(403).json({ error: banCheck.reason });
+    const users = await getUsers();
+    const me = users.find(u => u.id === userId);
+    if (!me) return res.status(401).json({ error: '未登录' });
+    const posts = await getPosts();
+    const idx = posts.findIndex(p => p.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '帖子不存在' });
+    const post = posts[idx];
+    if (post.authorId === userId) return res.status(400).json({ error: '不能给自己的帖子投币' });
+
+    const amount = req.body?.amount && Number.isInteger(req.body.amount) && req.body.amount > 0 ? req.body.amount : 10;
+    if (amount < 1) return res.status(400).json({ error: '投币数量至少为1' });
+    if ((me.wenshuCoin || 0) < amount) {
+      return res.status(400).json({ error: '文书币不足', code: 'INSUFFICIENT_COINS' });
+    }
+
+    me.wenshuCoin = (me.wenshuCoin || 0) - amount;
+    await saveUser(me);
+
+    const author = users.find(u => u.id === post.authorId);
+    if (author) {
+      author.wenshuCoin = (author.wenshuCoin || 0) + amount;
+      await saveUser(author);
+    }
+
+    post.coinCount = (post.coinCount || 0) + amount;
+    if (!post.tippedBy) post.tippedBy = [];
+    if (!post.tippedBy.includes(userId)) post.tippedBy.push(userId);
+    await savePost(post);
+
+    addTip({ id: genId('tip'), postId: post.id, userId, amount, createdAt: Date.now() });
+
+    if (author && post.authorId !== userId) {
+      await createNotification(post.authorId, 'tip', `向你的帖子投入了${amount}文书币`, userId, post.id);
+    }
+
+    await addVipExp(userId, Math.max(1, Math.floor(amount / 10)));
+
+    const isTipped = (post.tippedBy || []).includes(userId);
+    res.json({ coinCount: post.coinCount, isTipped, amount, totalCoins: me.wenshuCoin });
+  } catch (e) {
+    console.error('Tip error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+// ========== SHARE LINKS ==========
+app.get('/api/share/:type/:id', async (req, res) => {
+  try {
+    const { type, id } = req.params;
+    if (type === 'post') {
+      const posts = await getPosts();
+      const post = posts.find(p => p.id === id);
+      if (!post) return res.status(404).json({ error: '帖子不存在' });
+      const users = await getUsers();
+      const author = users.find(u => u.id === post.authorId);
+      return res.json({ type: 'post', id, post, author: author ? getUserPublic(author) : null, shareUrl: `wenshu://post/${id}` });
+    }
+    if (type === 'user') {
+      const users = await getUsers();
+      const user = users.find(u => u.id === id);
+      if (!user) return res.status(404).json({ error: '用户不存在' });
+      return res.json({ type: 'user', id, user: getUserPublic(user), shareUrl: `wenshu://user/${id}` });
+    }
+    res.status(400).json({ error: '无效的分享类型' });
+  } catch (e) {
+    console.error('Share error:', e);
     res.status(500).json({ error: '服务器错误' });
   }
 });
@@ -1182,9 +1271,10 @@ app.get('/api/posts/liked/mine', async (req, res) => {
     const users = await getUsers();
     const likes = await getLikes();
     const collects = await getCollects();
+    const tipsList = getTips();
     const myLikes = likes.filter(l => l.userId === userId).map(l => l.postId);
     const likedPosts = posts.filter(p => myLikes.includes(p.id)).sort((a, b) => b.createdAt - a.createdAt);
-    res.json(likedPosts.map(p => decoratePost(p, userId, users, likes, collects)));
+    res.json(likedPosts.map(p => decoratePost(p, userId, users, likes, collects, tipsList)));
   } catch (e) {
     console.error('Get liked posts error:', e);
     res.status(500).json({ error: '服务器错误' });
@@ -1199,9 +1289,10 @@ app.get('/api/posts/saved/mine', async (req, res) => {
     const users = await getUsers();
     const likes = await getLikes();
     const collects = await getCollects();
+    const tipsList = getTips();
     const myCollects = collects.filter(c => c.userId === userId).map(c => c.postId);
     const savedPosts = posts.filter(p => myCollects.includes(p.id)).sort((a, b) => b.createdAt - a.createdAt);
-    res.json(savedPosts.map(p => decoratePost(p, userId, users, likes, collects)));
+    res.json(savedPosts.map(p => decoratePost(p, userId, users, likes, collects, tipsList)));
   } catch (e) {
     console.error('Get saved posts error:', e);
     res.status(500).json({ error: '服务器错误' });
@@ -1503,7 +1594,7 @@ app.get('/api/search', async (req, res) => {
       return false;
     }).slice(0, 30).map(u => getUserPublic(u));
 
-    const postsWithAuthor = matchedPosts.map(p => decoratePost(p, currentUserId, users, likes, collects));
+    const postsWithAuthor = matchedPosts.map(p => decoratePost(p, currentUserId, users, likes, collects, getTips()));
     res.json({ posts: postsWithAuthor, users: matchedUsers });
   } catch (e) {
     console.error('Search error:', e);

@@ -157,6 +157,20 @@ class PostRepository {
         return result
     }
 
+    suspend fun tipPost(postId: String, amount: Int): Result<TipResponse> {
+        val result = safeApiCall { api.tipPost(postId, TipRequest(amount)) }
+        result.onSuccess { response ->
+            updatePostTipState(postId, response.isTipped, response.coinCount)
+            if (response.totalCoins > 0) {
+                val current = SharedPreferencesManager.getUser()
+                if (current != null) {
+                    SharedPreferencesManager.updateUser(current.copy(wenshuCoin = response.totalCoins))
+                }
+            }
+        }
+        return result
+    }
+
     suspend fun uploadImage(imagePath: String): Result<String> {
         return try {
             val file = File(imagePath)
@@ -276,6 +290,23 @@ class PostRepository {
         val detail = _postDetail.value
         if (detail != null && detail.id == postId) {
             _postDetail.postValue(detail.copy(isCollected = isCollected, collectCount = collectCount))
+        }
+    }
+
+    private fun updatePostTipState(postId: String, isTipped: Boolean, coinCount: Int) {
+        fun updateList(list: List<Post>?): List<Post>? {
+            return list?.map { if (it.id == postId) it.copy(isTipped = isTipped, coinCount = coinCount) else it }
+        }
+        _posts.postValue(updateList(_posts.value))
+        _userPosts.postValue(updateList(_userPosts.value))
+        _likedPosts.postValue(updateList(_likedPosts.value))
+        _savedPosts.postValue(updateList(_savedPosts.value))
+        _searchResults.postValue(_searchResults.value?.let { sr ->
+            sr.copy(posts = updateList(sr.posts) ?: emptyList())
+        })
+        val detail = _postDetail.value
+        if (detail != null && detail.id == postId) {
+            _postDetail.postValue(detail.copy(isTipped = isTipped, coinCount = coinCount))
         }
     }
 

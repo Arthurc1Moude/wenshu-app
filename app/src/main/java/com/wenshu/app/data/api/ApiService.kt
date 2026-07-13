@@ -44,6 +44,9 @@ interface ApiService {
     @POST("posts/{id}/collect")
     suspend fun toggleCollect(@Path("id") postId: String): CollectResponse
 
+    @POST("posts/{id}/tip")
+    suspend fun tipPost(@Path("id") postId: String, @Body request: TipRequest = TipRequest()): TipResponse
+
     @GET("posts/{id}/comments")
     suspend fun getComments(@Path("id") postId: String): List<Comment>
 
@@ -215,4 +218,7 @@ interface ApiService {
 
     @POST("secret/visit/{userId}")
     suspend fun recordSecretVisit(@Path("userId") userId: String): SimpleResponse
+
+    @GET("share/{type}/{id}")
+    suspend fun getShareInfo(@Path("type") type: String, @Path("id") id: String): Map<String, Any>
 }

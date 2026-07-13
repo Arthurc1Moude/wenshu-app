@@ -48,6 +48,17 @@ data class CollectResponse(
     val isCollected: Boolean
 )
 
+data class TipResponse(
+    val coinCount: Int,
+    val isTipped: Boolean,
+    val amount: Int = 0,
+    val totalCoins: Int = 0
+)
+
+data class TipRequest(
+    val amount: Int = 10
+)
+
 data class FollowResponse(
     val isFollowing: Boolean,
     val isMutual: Boolean = false,
@@ -255,7 +266,7 @@ data class MiniApp(
     val id: String = "",
     val name: String = "",
     val description: String = "",
-    val icon: String = "📱",
+    val icon: String = "",
     val url: String = "",
     val category: String = "other",
     val developerId: String = "",
@@ -267,7 +278,7 @@ data class Game(
     val id: String = "",
     val name: String = "",
     val description: String = "",
-    val icon: String = "🎮",
+    val icon: String = "",
     val url: String = "",
     val category: String = "other",
     val developerId: String = "",

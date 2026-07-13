@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -20,6 +21,7 @@ import com.wenshu.app.util.ImageUtils
 class PostCardAdapter(
     private val onPostClick: (Post) -> Unit,
     private val onLikeClick: (Post) -> Unit,
+    private val onCoinClick: (Post) -> Unit,
     private val onUserClick: (Post) -> Unit
 ) : ListAdapter<Post, PostCardAdapter.PostViewHolder>(PostDiffCallback()) {
 
@@ -37,6 +39,7 @@ class PostCardAdapter(
             tvUsername.text = post.author?.displayName ?: ""
             tvLikeCount.text = post.likeCount.toString()
             tvLikeCountOverlay.text = post.likeCount.toString()
+            tvCoinCount.text = if (post.coinCount > 0) post.coinCount.toString() else ""
 
             val firstImage = ImageUtils.normalizeUrl(post.firstImage)
             if (firstImage != null) {
@@ -69,12 +72,26 @@ class PostCardAdapter(
             imgLike.setImageResource(if (post.isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart)
             imgLike.setColorFilter(root.context.getColor(if (post.isLiked) R.color.seal else R.color.text_secondary))
 
+            if (post.isTipped) {
+                bgCoinIcon.setBackgroundResource(R.drawable.bg_coin_filled)
+                tvCoinSymbol.setTextColor(ContextCompat.getColor(root.context, R.color.background))
+            } else {
+                bgCoinIcon.setBackgroundResource(R.drawable.bg_coin_outline)
+                tvCoinSymbol.setTextColor(ContextCompat.getColor(root.context, R.color.ink))
+            }
+            tvCoinCount.setTextColor(ContextCompat.getColor(root.context,
+                if (post.isTipped) R.color.ink else R.color.text_secondary))
+
             root.setOnClickListener { onPostClick(post) }
             imgAvatar.setOnClickListener { onUserClick(post) }
             tvUsername.setOnClickListener { onUserClick(post) }
             layoutLike.setOnClickListener {
                 toggleLikeAnimation(imgLike)
                 onLikeClick(post)
+            }
+            layoutCoin.setOnClickListener {
+                toggleCoinAnimation(bgCoinIcon)
+                onCoinClick(post)
             }
 
             root.alpha = 0f
@@ -91,6 +108,17 @@ class PostCardAdapter(
     private fun toggleLikeAnimation(view: View) {
         val scaleX = ObjectAnimator.ofFloat(view, View.SCALE_X, 1f, 1.3f, 1f)
         val scaleY = ObjectAnimator.ofFloat(view, View.SCALE_Y, 1f, 1.3f, 1f)
+        AnimatorSet().apply {
+            playTogether(scaleX, scaleY)
+            duration = 300
+            interpolator = DecelerateInterpolator()
+            start()
+        }
+    }
+
+    private fun toggleCoinAnimation(view: View) {
+        val scaleX = ObjectAnimator.ofFloat(view, View.SCALE_X, 1f, 1.4f, 1f)
+        val scaleY = ObjectAnimator.ofFloat(view, View.SCALE_Y, 1f, 1.4f, 1f)
         AnimatorSet().apply {
             playTogether(scaleX, scaleY)
             duration = 300

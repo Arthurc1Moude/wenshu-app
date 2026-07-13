@@ -50,11 +50,23 @@
                 android:padding="@dimen/spacing_lg"
                 android:gravity="center">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🪙"
-                    android:textSize="48sp" />
+                <FrameLayout
+                    android:layout_width="56dp"
+                    android:layout_height="56dp">
+                    <View
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:background="@drawable/bg_coin_filled" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:text="文"
+                        android:textColor="@color/background"
+                        android:textSize="26sp"
+                        android:fontFamily="serif"
+                        android:textStyle="bold" />
+                </FrameLayout>
 
                 <TextView
                     android:id="@+id/tv_current_coin"
