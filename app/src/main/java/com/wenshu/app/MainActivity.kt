@@ -17,8 +17,8 @@ import com.wenshu.app.data.SharedPreferencesManager
 import com.wenshu.app.data.repository.PostRepository
 import com.wenshu.app.databinding.ActivityMainBinding
 import com.wenshu.app.ui.auth.LoginActivity
-import com.wenshu.app.ui.discover.DiscoverFragment
 import com.wenshu.app.ui.home.HomeFragment
+import com.wenshu.app.ui.search.SearchActivity
 import com.wenshu.app.ui.notifications.NotificationsFragment
 import com.wenshu.app.ui.postdetail.PostDetailActivity
 import com.wenshu.app.ui.profile.ProfileFragment
@@ -31,7 +31,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
 
     private var homeFragment: HomeFragment? = null
-    private var discoverFragment: DiscoverFragment? = null
     private var publishFragment: PublishFragment? = null
     private var notificationsFragment: NotificationsFragment? = null
     private var profileFragment: ProfileFragment? = null
@@ -164,12 +163,13 @@ class MainActivity : AppCompatActivity() {
     private fun restoreFragments(savedInstanceState: Bundle?) {
         if (savedInstanceState != null) {
             homeFragment = supportFragmentManager.findFragmentByTag("home") as? HomeFragment
-            discoverFragment = supportFragmentManager.findFragmentByTag("discover") as? DiscoverFragment
             publishFragment = supportFragmentManager.findFragmentByTag("publish") as? PublishFragment
             notificationsFragment = supportFragmentManager.findFragmentByTag("notifications") as? NotificationsFragment
             profileFragment = supportFragmentManager.findFragmentByTag("profile") as? ProfileFragment
-            val currentTag = savedInstanceState.getString("current_fragment_tag", "home")
+            var currentTag = savedInstanceState.getString("current_fragment_tag", "home")
+            if (currentTag == "discover") currentTag = "home"
             currentFragment = supportFragmentManager.findFragmentByTag(currentTag)
+            if (currentFragment == null) currentFragment = homeFragment
             Log.d("MainActivity", "Restored fragments from saved state, current: $currentTag")
         }
     }
@@ -177,7 +177,6 @@ class MainActivity : AppCompatActivity() {
     private fun tagToNavId(tag: String): Int {
         return when (tag) {
             "home" -> R.id.nav_home
-            "discover" -> R.id.nav_discover
             "publish" -> R.id.nav_publish
             "notifications" -> R.id.nav_notifications
             "profile" -> R.id.nav_profile
@@ -188,7 +187,6 @@ class MainActivity : AppCompatActivity() {
     private fun navIdToTag(navId: Int): String {
         return when (navId) {
             R.id.nav_home -> "home"
-            R.id.nav_discover -> "discover"
             R.id.nav_publish -> "publish"
             R.id.nav_notifications -> "notifications"
             R.id.nav_profile -> "profile"
@@ -200,7 +198,6 @@ class MainActivity : AppCompatActivity() {
         super.onSaveInstanceState(outState)
         val tag = when (currentFragment) {
             is HomeFragment -> "home"
-            is DiscoverFragment -> "discover"
             is PublishFragment -> "publish"
             is NotificationsFragment -> "notifications"
             is ProfileFragment -> "profile"
@@ -213,14 +210,28 @@ class MainActivity : AppCompatActivity() {
         Log.d("MainActivity", "Setting up bottom navigation")
         binding.bottomNav.setOnItemSelectedListener { item ->
             Log.d("MainActivity", "Bottom nav item selected: ${item.itemId}")
+
+            if (item.itemId == R.id.nav_discover) {
+                val homeFrag = if (homeFragment == null) {
+                    homeFragment = HomeFragment()
+                    homeFragment!!
+                } else {
+                    homeFragment!!
+                }
+                switchFragment(homeFrag, "home")
+                binding.bottomNav.menu.findItem(R.id.nav_home).isChecked = true
+                binding.root.postDelayed({
+                    runOnUiThread {
+                        homeFragment?.openSearch()
+                    }
+                }, 100)
+                return@setOnItemSelectedListener false
+            }
+
             val fragment = when (item.itemId) {
                 R.id.nav_home -> {
                     if (homeFragment == null) homeFragment = HomeFragment()
                     homeFragment!!
-                }
-                R.id.nav_discover -> {
-                    if (discoverFragment == null) discoverFragment = DiscoverFragment()
-                    discoverFragment!!
                 }
                 R.id.nav_publish -> {
                     if (publishFragment == null) publishFragment = PublishFragment()
@@ -320,7 +331,6 @@ class MainActivity : AppCompatActivity() {
     private fun updateFragmentReference(tag: String, fragment: Fragment) {
         when (tag) {
             "home" -> homeFragment = fragment as? HomeFragment
-            "discover" -> discoverFragment = fragment as? DiscoverFragment
             "publish" -> publishFragment = fragment as? PublishFragment
             "notifications" -> notificationsFragment = fragment as? NotificationsFragment
             "profile" -> profileFragment = fragment as? ProfileFragment

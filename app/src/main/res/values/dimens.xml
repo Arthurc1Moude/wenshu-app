@@ -52,4 +52,5 @@
     <dimen name="corner_radius_md">2dp</dimen>
     <dimen name="following">0dp</dimen>
     <dimen name="status_bar_height">24dp</dimen>
+    <dimen name="popup_menu_width">180dp</dimen>
 </resources>

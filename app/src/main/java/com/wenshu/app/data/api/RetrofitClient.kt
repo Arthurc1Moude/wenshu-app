@@ -1,12 +1,18 @@
 package com.wenshu.app.data.api
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonDeserializationContext
+import com.google.gson.JsonDeserializer
+import com.google.gson.JsonElement
+import com.google.gson.JsonPrimitive
 import com.wenshu.app.data.SharedPreferencesManager
 import com.wenshu.app.data.model.ApiError
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.lang.reflect.Type
 import java.util.concurrent.TimeUnit
 
 class ApiException(
@@ -20,7 +26,40 @@ object RetrofitClient {
     private const val BASE_URL = "https://wenshu-server.onrender.com/api/"
     private const val TIMEOUT_SECONDS = 30L
 
-    private val gson = Gson()
+    private val gson: Gson = GsonBuilder()
+        .registerTypeAdapter(Long::class.java, object : JsonDeserializer<Long> {
+            override fun deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext): Long {
+                return try {
+                    if (json.isJsonPrimitive) {
+                        val primitive = json.asJsonPrimitive
+                        when {
+                            primitive.isNumber -> primitive.asNumber.toLong()
+                            primitive.isString -> primitive.asString.toDoubleOrNull()?.toLong() ?: 0L
+                            else -> 0L
+                        }
+                    } else 0L
+                } catch (e: Exception) {
+                    0L
+                }
+            }
+        })
+        .registerTypeAdapter(Long::class.javaPrimitiveType, object : JsonDeserializer<Long> {
+            override fun deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext): Long {
+                return try {
+                    if (json.isJsonPrimitive) {
+                        val primitive = json.asJsonPrimitive
+                        when {
+                            primitive.isNumber -> primitive.asNumber.toLong()
+                            primitive.isString -> primitive.asString.toDoubleOrNull()?.toLong() ?: 0L
+                            else -> 0L
+                        }
+                    } else 0L
+                } catch (e: Exception) {
+                    0L
+                }
+            }
+        })
+        .create()
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY

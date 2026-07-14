@@ -26,11 +26,35 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content">
 
-                    <androidx.viewpager2.widget.ViewPager2
-                        android:id="@+id/view_pager_images"
+                    <FrameLayout
+                        android:id="@+id/layout_media_container"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="@color/paper" />
+                        android:background="@color/paper">
+
+                        <androidx.viewpager2.widget.ViewPager2
+                            android:id="@+id/view_pager_images"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content" />
+
+                        <VideoView
+                            android:id="@+id/video_view"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:visibility="gone" />
+
+                        <ImageView
+                            android:id="@+id/btn_video_play"
+                            android:layout_width="64dp"
+                            android:layout_height="64dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_video_play"
+                            android:background="@drawable/bg_circle_dark"
+                            android:padding="16dp"
+                            android:visibility="gone"
+                            android:contentDescription="播放" />
+                    </FrameLayout>
 
                     <ImageView
                         android:id="@+id/img_big_heart"
@@ -60,11 +84,22 @@
                             android:src="@drawable/ic_arrow_back"
                             android:contentDescription="@string/back" />
 
+                        <ImageView
+                            android:id="@+id/btn_more"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:layout_gravity="top|end"
+                            android:background="@drawable/bg_circle_icon_button"
+                            android:padding="6dp"
+                            android:src="@drawable/ic_more_vert"
+                            android:contentDescription="更多" />
+
                         <TextView
                             android:id="@+id/tv_image_indicator"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_gravity="center|end"
+                            android:layout_marginEnd="48dp"
                             android:background="@drawable/bg_image_badge"
                             android:paddingStart="@dimen/spacing_sm"
                             android:paddingEnd="@dimen/spacing_sm"
@@ -169,7 +204,8 @@
                         android:textSize="@dimen/text_title"
                         android:fontFamily="serif"
                         android:lineSpacingExtra="4dp"
-                        android:letterSpacing="0.03" />
+                        android:letterSpacing="0.03"
+                        android:visibility="gone" />
 
                     <TextView
                         android:id="@+id/tv_content"
@@ -179,7 +215,16 @@
                         android:textColor="@color/text_primary"
                         android:textSize="@dimen/text_body"
                         android:fontFamily="serif"
-                        android:lineSpacingExtra="4dp" />
+                        android:lineSpacingExtra="4dp"
+                        android:autoLink="web"
+                        android:linksClickable="true" />
+
+                    <LinearLayout
+                        android:id="@+id/layout_url_previews"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="@dimen/spacing_md" />
 
                     <com.google.android.flexbox.FlexboxLayout
                         android:id="@+id/layout_tags"
@@ -212,6 +257,13 @@
                             android:textSize="@dimen/text_caption"
                             android:fontFamily="serif" />
                     </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/layout_files"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="@dimen/spacing_md" />
 
                     <View
                         android:layout_width="match_parent"
@@ -289,12 +341,11 @@
 
                 <FrameLayout
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
+                    android:layout_height="38dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_input_comment"
                     android:paddingStart="@dimen/spacing_md"
-                    android:paddingEnd="@dimen/spacing_md"
-                    android:layout_marginEnd="@dimen/spacing_md">
+                    android:paddingEnd="44dp">
 
                     <EditText
                         android:id="@+id/et_comment"
@@ -309,14 +360,18 @@
                         android:textColorHint="@color/text_hint"
                         android:textSize="@dimen/text_body"
                         android:fontFamily="serif" />
-                </FrameLayout>
 
-                <ImageView
-                    android:id="@+id/btn_send_comment"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@drawable/ic_send"
-                    android:contentDescription="@string/send" />
+                    <ImageView
+                        android:id="@+id/btn_send_comment"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:layout_gravity="center_vertical|end"
+                        android:layout_marginEnd="8dp"
+                        android:src="@drawable/ic_arrow_up_circle"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:padding="0dp"
+                        android:contentDescription="@string/send" />
+                </FrameLayout>
 
                 <View
                     android:layout_width="@dimen/spacing_md"
@@ -381,36 +436,6 @@
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:src="@drawable/ic_star"
-                        android:contentDescription="@null" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/layout_comment"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="@dimen/spacing_xs">
-
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_comment"
-                        android:contentDescription="@null" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/layout_share"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="@dimen/spacing_xs">
-
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_share"
                         android:contentDescription="@null" />
                 </LinearLayout>
             </LinearLayout>

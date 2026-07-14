@@ -16,6 +16,7 @@ import com.wenshu.app.R
 import com.wenshu.app.data.model.Comment
 import com.wenshu.app.databinding.ItemCommentBinding
 import com.wenshu.app.util.ImageUtils
+import com.wenshu.app.util.LinkifyUtils
 import com.wenshu.app.util.TimeUtils
 
 class CommentAdapter(
@@ -46,7 +47,7 @@ class CommentAdapter(
             } else {
                 comment.content
             }
-            tvContent.text = displayContent
+            LinkifyUtils.setupClickableLinks(tvContent, root.context, displayContent)
             tvTime.text = TimeUtils.formatRelativeTime(comment.createdAt)
             tvLikeCount.text = if (comment.likeCount > 0) comment.likeCount.toString() else ""
 
@@ -115,7 +116,7 @@ class CommentAdapter(
             } else {
                 reply.content
             }
-            tvContent.text = replyText
+            LinkifyUtils.setupClickableLinks(tvContent, context, replyText)
             tvUsername.text = reply.author?.displayName ?: "用户"
             tvTime.text = TimeUtils.formatRelativeTime(reply.createdAt)
             tvLikeCount.text = if (reply.likeCount > 0) reply.likeCount.toString() else ""

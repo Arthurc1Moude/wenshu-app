@@ -18,7 +18,8 @@ import {
   pgFindUserByPhone,
   pgGetCommentLikes, pgAddCommentLike, pgDeleteCommentLike, pgGetCommentLikeCount, pgIsCommentLikedByUser,
   pgGetGroupChats, pgGetGroupChatById, pgGetGroupChatByNumber, pgSaveGroupChat,
-  pgGetGroupMembers, pgGetUserGroups, pgAddGroupMember, pgRemoveGroupMember, pgIsGroupMember, pgGenerateGroupNumber
+  pgGetGroupMembers, pgGetUserGroups, pgAddGroupMember, pgRemoveGroupMember, pgIsGroupMember, pgGenerateGroupNumber,
+  pgSaveFileMeta, pgGetFileMeta, pgGetAllFileMeta, pgGetExpiredFileMeta, pgDeleteFileMeta, pgGetUserTotalStorage, pgGetTotalStorage
 } from './db-postgres.js';
 
 let memUsers = [];
@@ -40,6 +41,7 @@ let memGroupMembers = [];
 let memRegisterCount = 0;
 let memVerifCodes = [];
 let memTips = [];
+let memFileMetadata = new Map();
 let useMem = false;
 
 function uid(prefix) { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -345,3 +347,62 @@ export async function seedInitialData() {
 
 export const usePostgres = true;
 export { pool };
+
+export async function saveFileMeta(meta) {
+  if (useMem) {
+    memFileMetadata.set(meta.id, { ...meta });
+    return meta;
+  }
+  return pgSaveFileMeta(meta);
+}
+
+export async function getFileMeta(id) {
+  if (useMem) {
+    return memFileMetadata.get(id) || null;
+  }
+  return pgGetFileMeta(id);
+}
+
+export async function getAllFileMeta() {
+  if (useMem) {
+    return Array.from(memFileMetadata.values());
+  }
+  return pgGetAllFileMeta();
+}
+
+export async function getExpiredFileMeta(now) {
+  if (useMem) {
+    return Array.from(memFileMetadata.values()).filter(m => m.expiresAt && m.expiresAt < now);
+  }
+  return pgGetExpiredFileMeta(now);
+}
+
+export async function deleteFileMeta(id) {
+  if (useMem) {
+    memFileMetadata.delete(id);
+    return;
+  }
+  return pgDeleteFileMeta(id);
+}
+
+export async function getUserTotalStorage(userId) {
+  if (useMem) {
+    let total = 0;
+    for (const m of memFileMetadata.values()) {
+      if (m.uploaderId === userId) total += m.size;
+    }
+    return total;
+  }
+  return pgGetUserTotalStorage(userId);
+}
+
+export async function getTotalStorage() {
+  if (useMem) {
+    let total = 0;
+    for (const m of memFileMetadata.values()) {
+      total += m.size;
+    }
+    return total;
+  }
+  return pgGetTotalStorage();
+}

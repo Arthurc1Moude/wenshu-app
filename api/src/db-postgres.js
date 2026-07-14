@@ -263,6 +263,23 @@ export async function initTables() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS file_metadata (
+        id TEXT PRIMARY KEY,
+        filename TEXT NOT NULL,
+        original_name TEXT NOT NULL,
+        ext TEXT DEFAULT '',
+        size BIGINT DEFAULT 0,
+        size_formatted TEXT DEFAULT '',
+        icon_type TEXT DEFAULT 'generic',
+        uploaded_at BIGINT,
+        expires_at BIGINT,
+        is_permanent BOOLEAN DEFAULT false,
+        uploader_id TEXT NOT NULL,
+        post_id TEXT
+      )
+    `);
+
     await client.query(`CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id)`);
@@ -284,9 +301,52 @@ export async function initTables() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_group_chats_number ON group_chats(group_number)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_file_meta_uploader ON file_metadata(uploader_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_file_meta_expires ON file_metadata(expires_at)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_file_meta_post ON file_metadata(post_id)`);
 
     await client.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS coin_count INTEGER DEFAULT 0`);
     await client.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS tipped_by JSONB DEFAULT '[]'::jsonb`);
+    await client.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS title TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS media JSONB DEFAULT '[]'::jsonb`);
+    await client.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS files JSONB DEFAULT '[]'::jsonb`);
+    await client.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_long_text BOOLEAN DEFAULT false`);
+    await client.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS location TEXT`);
+    await client.query(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS url_previews JSONB DEFAULT '[]'::jsonb`);
+
+    const userAlterColumns = [
+      'phone TEXT UNIQUE',
+      'avatar TEXT',
+      'cover TEXT',
+      'bio TEXT DEFAULT \'\'',
+      'location TEXT DEFAULT \'\'',
+      'wenshu_coin INTEGER DEFAULT 0',
+      'is_vip BOOLEAN DEFAULT false',
+      'vip_level INTEGER DEFAULT 0',
+      'vip_exp INTEGER DEFAULT 0',
+      'vip_expires_at BIGINT',
+      'following_count INTEGER DEFAULT 0',
+      'followers_count INTEGER DEFAULT 0',
+      'likes_count INTEGER DEFAULT 0',
+      'register_rank INTEGER DEFAULT 0',
+      'is_signed_in_today BOOLEAN DEFAULT false',
+      'last_sign_in_date TEXT DEFAULT \'\'',
+      'consecutive_sign_days INTEGER DEFAULT 0',
+      'created_at BIGINT',
+      'joined_qq_group BOOLEAN DEFAULT false',
+      'is_admin BOOLEAN DEFAULT false',
+      'is_banned BOOLEAN DEFAULT false',
+      'ban_until BIGINT',
+      'ban_reason TEXT'
+    ];
+    for (const col of userAlterColumns) {
+      const colName = col.split(' ')[0];
+      try {
+        await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${col}`);
+      } catch (e) {
+        console.warn(`Column ${colName} may already exist:`, e.message);
+      }
+    }
 
     console.log('✅ PostgreSQL tables initialized');
   } finally {
@@ -334,13 +394,18 @@ function rowToPost(row) {
     title: row.title || '',
     content: row.content,
     images: row.images || [],
+    media: row.media || [],
+    files: row.files || [],
     tags: row.tags || [],
     likeCount: row.like_count || 0,
     commentCount: row.comment_count || 0,
     collectCount: row.collect_count || 0,
     coinCount: row.coin_count || 0,
     tippedBy: row.tipped_by || [],
-    createdAt: row.created_at,
+    isLongText: row.is_long_text || false,
+    location: row.location || null,
+    urlPreviews: row.url_previews || [],
+    createdAt: Math.floor(Number(row.created_at) || Date.now()),
   };
 }
 
@@ -353,23 +418,23 @@ function rowToComment(row) {
     content: row.content,
     likeCount: row.like_count || 0,
     replyToId: row.reply_to_id,
-    createdAt: row.created_at,
+    createdAt: Math.floor(Number(row.created_at) || Date.now()),
   };
 }
 
 function rowToLike(row) {
   if (!row) return null;
-  return { id: row.id, postId: row.post_id, userId: row.user_id, createdAt: row.created_at };
+  return { id: row.id, postId: row.post_id, userId: row.user_id, createdAt: Math.floor(Number(row.created_at) || Date.now()) };
 }
 
 function rowToCollect(row) {
   if (!row) return null;
-  return { id: row.id, postId: row.post_id, userId: row.user_id, createdAt: row.created_at };
+  return { id: row.id, postId: row.post_id, userId: row.user_id, createdAt: Math.floor(Number(row.created_at) || Date.now()) };
 }
 
 function rowToFollow(row) {
   if (!row) return null;
-  return { id: row.id, followerId: row.follower_id, followingId: row.following_id, createdAt: row.created_at };
+  return { id: row.id, followerId: row.follower_id, followingId: row.following_id, createdAt: Math.floor(Number(row.created_at) || Date.now()) };
 }
 
 function rowToNotification(row) {
@@ -382,7 +447,7 @@ function rowToNotification(row) {
     fromUserId: row.from_user_id,
     postId: row.post_id,
     isRead: row.is_read,
-    createdAt: row.created_at,
+    createdAt: Math.floor(Number(row.created_at) || Date.now()),
   };
 }
 
@@ -395,7 +460,7 @@ function rowToConversation(row) {
     avatar: row.avatar,
     participantIds: row.participant_ids || [],
     lastMessage: row.last_message,
-    lastMessageTime: row.last_message_time,
+    lastMessageTime: row.last_message_time ? Math.floor(Number(row.last_message_time)) : null,
     unreadCount: row.unread_count,
     isSystem: row.is_system,
   };
@@ -409,7 +474,7 @@ function rowToMessage(row) {
     senderId: row.sender_id,
     content: row.content,
     read: row.read,
-    createdAt: row.created_at,
+    createdAt: Math.floor(Number(row.created_at) || Date.now()),
   };
 }
 
@@ -500,17 +565,22 @@ export async function pgGetPosts() {
 
 export async function pgSavePost(post) {
   await pool.query(`
-    INSERT INTO posts (id, author_id, title, content, images, tags, like_count, comment_count, collect_count, coin_count, tipped_by, created_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+    INSERT INTO posts (id, author_id, title, content, images, media, files, tags, like_count, comment_count, collect_count, coin_count, tipped_by, is_long_text, location, url_previews, created_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
     ON CONFLICT (id) DO UPDATE SET
-      title = EXCLUDED.title, content = EXCLUDED.content, images = EXCLUDED.images, tags = EXCLUDED.tags,
+      title = EXCLUDED.title, content = EXCLUDED.content, images = EXCLUDED.images, media = EXCLUDED.media,
+      files = EXCLUDED.files, tags = EXCLUDED.tags,
       like_count = EXCLUDED.like_count, comment_count = EXCLUDED.comment_count, collect_count = EXCLUDED.collect_count,
-      coin_count = EXCLUDED.coin_count, tipped_by = EXCLUDED.tipped_by
+      coin_count = EXCLUDED.coin_count, tipped_by = EXCLUDED.tipped_by,
+      is_long_text = EXCLUDED.is_long_text, location = EXCLUDED.location, url_previews = EXCLUDED.url_previews
   `, [
     post.id, post.authorId, post.title || '', post.content,
-    JSON.stringify(post.images || []), JSON.stringify(post.tags || []),
+    JSON.stringify(post.images || []), JSON.stringify(post.media || []), JSON.stringify(post.files || []),
+    JSON.stringify(post.tags || []),
     post.likeCount || 0, post.commentCount || 0, post.collectCount || 0,
-    post.coinCount || 0, JSON.stringify(post.tippedBy || []), post.createdAt
+    post.coinCount || 0, JSON.stringify(post.tippedBy || []),
+    post.isLongText || false, post.location || null, JSON.stringify(post.urlPreviews || []),
+    post.createdAt
   ]);
 }
 
@@ -863,6 +933,67 @@ export async function pgGenerateGroupNumber() {
     if (!existing) return num;
   }
   return Math.floor(1000000 + Math.random() * 9000000).toString();
+}
+
+function rowToFileMeta(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    filename: row.filename,
+    originalName: row.original_name,
+    ext: row.ext || '',
+    size: Number(row.size) || 0,
+    sizeFormatted: row.size_formatted || '',
+    iconType: row.icon_type || 'generic',
+    uploadedAt: Number(row.uploaded_at) || Date.now(),
+    expiresAt: row.expires_at ? Number(row.expires_at) : null,
+    isPermanent: row.is_permanent || false,
+    uploaderId: row.uploader_id,
+    postId: row.post_id || null
+  };
+}
+
+export async function pgSaveFileMeta(meta) {
+  await pool.query(`
+    INSERT INTO file_metadata (id, filename, original_name, ext, size, size_formatted, icon_type, uploaded_at, expires_at, is_permanent, uploader_id, post_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+    ON CONFLICT (id) DO UPDATE SET
+      filename = EXCLUDED.filename,
+      original_name = EXCLUDED.original_name,
+      post_id = EXCLUDED.post_id
+  `, [meta.id, meta.filename, meta.originalName, meta.ext, meta.size, meta.sizeFormatted,
+       meta.iconType, meta.uploadedAt, meta.expiresAt, meta.isPermanent, meta.uploaderId, meta.postId]);
+  return meta;
+}
+
+export async function pgGetFileMeta(id) {
+  const res = await pool.query('SELECT * FROM file_metadata WHERE id = $1', [id]);
+  if (res.rows.length === 0) return null;
+  return rowToFileMeta(res.rows[0]);
+}
+
+export async function pgGetAllFileMeta() {
+  const res = await pool.query('SELECT * FROM file_metadata ORDER BY uploaded_at DESC');
+  return res.rows.map(rowToFileMeta);
+}
+
+export async function pgGetExpiredFileMeta(now) {
+  const res = await pool.query('SELECT * FROM file_metadata WHERE expires_at IS NOT NULL AND expires_at < $1', [now]);
+  return res.rows.map(rowToFileMeta);
+}
+
+export async function pgDeleteFileMeta(id) {
+  await pool.query('DELETE FROM file_metadata WHERE id = $1', [id]);
+}
+
+export async function pgGetUserTotalStorage(userId) {
+  const res = await pool.query('SELECT COALESCE(SUM(size), 0) as total FROM file_metadata WHERE uploader_id = $1', [userId]);
+  return Number(res.rows[0].total) || 0;
+}
+
+export async function pgGetTotalStorage() {
+  const res = await pool.query('SELECT COALESCE(SUM(size), 0) as total FROM file_metadata');
+  return Number(res.rows[0].total) || 0;
 }
 
 export { pool };

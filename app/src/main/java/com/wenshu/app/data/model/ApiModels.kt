@@ -29,8 +29,14 @@ data class CommentRequest(
 
 data class PostRequest(
     val content: String,
+    val title: String = "",
     val images: List<String> = emptyList(),
-    val tags: List<String> = emptyList()
+    val media: List<MediaItem> = emptyList(),
+    val files: List<FileAttachment> = emptyList(),
+    val tags: List<String> = emptyList(),
+    val isLongText: Boolean = false,
+    val location: String? = null,
+    val urlPreviews: List<UrlPreview> = emptyList()
 )
 
 data class SearchResponse(
@@ -105,7 +111,30 @@ data class UpdateUserRequest(
 )
 
 data class UploadResponse(
-    val url: String
+    val url: String,
+    val size: Long = 0,
+    val sizeFormatted: String = "",
+    val type: String = "image"
+)
+
+data class MediaUploadResponse(
+    val url: String = "",
+    val type: String = "image",
+    val ext: String = "",
+    val size: Long = 0,
+    val sizeFormatted: String = ""
+)
+
+data class FileUploadResponse(
+    val id: String = "",
+    val url: String = "",
+    val originalName: String = "",
+    val ext: String = "",
+    val size: Long = 0,
+    val sizeFormatted: String = "",
+    val iconType: String = "unknown",
+    val expiresAt: Long? = null,
+    val isPermanent: Boolean = false
 )
 
 data class SendCodeRequest(

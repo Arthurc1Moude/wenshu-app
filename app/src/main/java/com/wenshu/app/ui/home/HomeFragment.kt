@@ -48,7 +48,21 @@ class HomeFragment : Fragment() {
         setupRetryButton()
         setupFeaturePanel()
         observeData()
+        val posts = viewModel.posts.value
+        if (posts.isNullOrEmpty()) {
+            viewModel.loadPosts()
+        }
         Log.d("HomeFragment", "setup complete")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val posts = viewModel.posts.value
+        val isLoading = viewModel.isLoading.value ?: false
+        Log.d("HomeFragment", "onResume, posts=${posts?.size}, loading=$isLoading")
+        if (posts.isNullOrEmpty() && !isLoading) {
+            viewModel.refresh()
+        }
     }
 
     private fun setupRecyclerView() {
@@ -183,7 +197,8 @@ class HomeFragment : Fragment() {
         viewModel.posts.observe(viewLifecycleOwner) { posts ->
             Log.d("HomeFragment", "Posts updated: ${posts?.size ?: 0} posts")
             postAdapter.submitList(posts)
-            updateEmptyState(posts.isNullOrEmpty())
+            val isLoading = viewModel.isLoading.value ?: false
+            updateEmptyState(posts.isNullOrEmpty(), isLoading)
         }
         viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
             Log.d("HomeFragment", "Loading: $isLoading")
@@ -193,21 +208,22 @@ class HomeFragment : Fragment() {
             val shouldShowLoading = isLoading && postAdapter.itemCount == 0
             binding.progressLoading.visibility = if (shouldShowLoading) View.VISIBLE else View.GONE
             if (!isLoading) {
-                val isEmpty = postAdapter.itemCount == 0
-                binding.layoutEmpty.visibility = if (isEmpty) View.VISIBLE else View.GONE
+                val posts = viewModel.posts.value
+                updateEmptyState(posts.isNullOrEmpty(), false)
             }
         }
         viewModel.error.observe(viewLifecycleOwner) { error ->
             Log.e("HomeFragment", "Error: $error")
             error?.let {
                 if (postAdapter.itemCount == 0) {
-                    binding.layoutEmpty.visibility = View.VISIBLE
+                    updateEmptyState(true, false)
                     binding.progressLoading.visibility = View.GONE
                 } else {
                     try {
                         Snackbar.make(binding.root, it, Snackbar.LENGTH_SHORT).show()
                     } catch (e: Exception) {
                         Log.e("HomeFragment", "Error showing snackbar", e)
+                        Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
                     }
                 }
                 viewModel.clearError()
@@ -225,13 +241,8 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun updateEmptyState(isEmpty: Boolean) {
-        val isLoading = viewModel.isLoading.value ?: false
-        if (isEmpty && !isLoading) {
-            binding.layoutEmpty.visibility = View.VISIBLE
-        } else {
-            binding.layoutEmpty.visibility = View.GONE
-        }
+    private fun updateEmptyState(isEmpty: Boolean, isLoading: Boolean) {
+        binding.layoutEmpty.visibility = if (isEmpty && !isLoading) View.VISIBLE else View.GONE
     }
 
     override fun onDestroyView() {
@@ -241,5 +252,9 @@ class HomeFragment : Fragment() {
 
     fun refreshPosts() {
         viewModel.refresh()
+    }
+
+    fun openSearch() {
+        startActivity(Intent(requireContext(), SearchActivity::class.java))
     }
 }

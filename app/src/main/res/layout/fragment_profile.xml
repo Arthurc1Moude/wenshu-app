@@ -8,13 +8,15 @@
     <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/background">
+        android:background="@color/background"
+        android:clipChildren="false">
 
         <com.google.android.material.appbar.AppBarLayout
             android:id="@+id/app_bar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@color/background"
+            android:clipChildren="false"
             app:elevation="0dp">
 
             <com.google.android.material.appbar.CollapsingToolbarLayout
@@ -121,15 +123,17 @@
                 <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="-40dp">
+                    android:layout_marginTop="-12dp"
+                    android:clipChildren="false">
 
                     <ImageView
                         android:id="@+id/img_avatar"
-                        android:layout_width="80dp"
-                        android:layout_height="80dp"
+                        android:layout_width="88dp"
+                        android:layout_height="88dp"
                         android:layout_gravity="top|start"
                         android:layout_marginStart="@dimen/spacing_lg"
                         android:scaleType="centerCrop"
+                        android:elevation="8dp"
                         android:contentDescription="@null" />
                 </FrameLayout>
 

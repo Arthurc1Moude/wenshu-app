@@ -79,7 +79,7 @@
                 android:textColorHint="@color/text_hint"
                 android:textSize="@dimen/text_title"
                 android:fontFamily="serif"
-                android:hint="添加标题让更多人看到（可选）"
+                android:hint="（可选）"
                 android:inputType="textMultiLine|textCapSentences"
                 android:maxLines="3"
                 android:gravity="top"
@@ -102,6 +102,14 @@
                 android:gravity="top"
                 android:lineSpacingMultiplier="1.5"
                 android:layout_marginBottom="@dimen/spacing_lg" />
+
+            <LinearLayout
+                android:id="@+id/layout_selected_files"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="@dimen/spacing_md"
+                android:visibility="gone" />
 
             <LinearLayout
                 android:id="@+id/layout_selected_tags"
@@ -208,13 +216,23 @@
         android:elevation="4dp">
 
         <ImageView
-            android:id="@+id/btn_add_image"
+            android:id="@+id/btn_add_media"
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:padding="6dp"
             android:src="@drawable/ic_image"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="图片" />
+            android:contentDescription="添加媒体" />
+
+        <ImageView
+            android:id="@+id/btn_attach_file"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:padding="6dp"
+            android:src="@drawable/ic_attach_file"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:layout_marginStart="@dimen/spacing_md"
+            android:contentDescription="添加文件" />
 
         <ImageView
             android:id="@+id/btn_add_title"
@@ -225,6 +243,16 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:layout_marginStart="@dimen/spacing_md"
             android:contentDescription="标题" />
+
+        <ImageView
+            android:id="@+id/btn_long_text"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:padding="6dp"
+            android:src="@drawable/ic_long_text"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:layout_marginStart="@dimen/spacing_md"
+            android:contentDescription="长文模式" />
 
         <View
             android:layout_width="0dp"

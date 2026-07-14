@@ -174,7 +174,13 @@ class PostRepository {
     suspend fun uploadImage(imagePath: String): Result<String> {
         return try {
             val file = File(imagePath)
-            val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
+            val mimeType = when {
+                imagePath.endsWith(".gif", true) -> "image/gif"
+                imagePath.endsWith(".webp", true) -> "image/webp"
+                imagePath.endsWith(".png", true) -> "image/png"
+                else -> "image/jpeg"
+            }
+            val requestFile = file.asRequestBody(mimeType.toMediaTypeOrNull())
             val part = MultipartBody.Part.createFormData("image", file.name, requestFile)
             val result = safeApiCall { api.uploadImage(part) }
             result.map { it.url }
@@ -183,9 +189,62 @@ class PostRepository {
         }
     }
 
-    suspend fun createPost(content: String, images: List<String>, tags: List<String>): Result<Post> {
+    suspend fun uploadMedia(filePath: String): Result<MediaUploadResponse> {
+        return try {
+            val file = File(filePath)
+            val mimeType = when {
+                filePath.endsWith(".mp4", true) -> "video/mp4"
+                filePath.endsWith(".mov", true) -> "video/quicktime"
+                filePath.endsWith(".avi", true) -> "video/x-msvideo"
+                filePath.endsWith(".mkv", true) -> "video/x-matroska"
+                filePath.endsWith(".webm", true) -> "video/webm"
+                filePath.endsWith(".3gp", true) -> "video/3gpp"
+                filePath.endsWith(".gif", true) -> "image/gif"
+                else -> "application/octet-stream"
+            }
+            val requestFile = file.asRequestBody(mimeType.toMediaTypeOrNull())
+            val part = MultipartBody.Part.createFormData("file", file.name, requestFile)
+            safeApiCall { api.uploadMedia(part) }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun uploadFile(filePath: String): Result<FileUploadResponse> {
+        return try {
+            val file = File(filePath)
+            val requestFile = file.asRequestBody("application/octet-stream".toMediaTypeOrNull())
+            val part = MultipartBody.Part.createFormData("file", file.name, requestFile)
+            safeApiCall { api.uploadFile(part) }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createPost(
+        content: String,
+        title: String = "",
+        images: List<String> = emptyList(),
+        tags: List<String> = emptyList(),
+        media: List<MediaItem> = emptyList(),
+        files: List<FileAttachment> = emptyList(),
+        isLongText: Boolean = false,
+        location: String? = null,
+        urlPreviews: List<UrlPreview> = emptyList()
+    ): Result<Post> {
         _isLoading.postValue(true)
-        val result = safeApiCall { api.createPost(PostRequest(content, images, tags)) }
+        val request = PostRequest(
+            content = content,
+            title = title,
+            images = images,
+            media = media,
+            files = files,
+            tags = tags,
+            isLongText = isLongText,
+            location = location,
+            urlPreviews = urlPreviews
+        )
+        val result = safeApiCall { api.createPost(request) }
         result.onSuccess { newPost ->
             val current = _posts.value?.toMutableList() ?: mutableListOf()
             current.add(0, newPost)

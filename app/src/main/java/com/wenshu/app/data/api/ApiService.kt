@@ -38,6 +38,14 @@ interface ApiService {
     @POST("upload")
     suspend fun uploadImage(@Part image: MultipartBody.Part): UploadResponse
 
+    @Multipart
+    @POST("upload/media")
+    suspend fun uploadMedia(@Part file: MultipartBody.Part): MediaUploadResponse
+
+    @Multipart
+    @POST("upload/file")
+    suspend fun uploadFile(@Part file: MultipartBody.Part): FileUploadResponse
+
     @POST("posts/{id}/like")
     suspend fun toggleLike(@Path("id") postId: String): LikeResponse
 

@@ -2,17 +2,33 @@ package com.wenshu.app.ui.postdetail
 
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
+import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Bundle
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.method.LinkMovementMethod
+import android.text.style.ClickableSpan
+import android.text.style.URLSpan
 import android.view.GestureDetector
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.MediaController
+import android.widget.PopupWindow
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.VideoView
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -23,13 +39,23 @@ import com.bumptech.glide.Glide
 import com.wenshu.app.R
 import com.wenshu.app.data.SharedPreferencesManager
 import com.wenshu.app.data.model.Comment
+import com.wenshu.app.data.model.FileAttachment
+import com.wenshu.app.data.model.MediaItem
 import com.wenshu.app.data.model.Post
+import com.wenshu.app.data.model.UrlPreview
 import com.wenshu.app.databinding.ActivityPostDetailBinding
 import com.wenshu.app.ui.adapters.CommentAdapter
 import com.wenshu.app.ui.adapters.ImagePagerAdapter
+import com.wenshu.app.ui.fileviewer.FileViewerActivity
 import com.wenshu.app.ui.profile.UserProfileActivity
+import com.wenshu.app.ui.webview.WebViewActivity
 import com.wenshu.app.util.ImageUtils
+import com.wenshu.app.util.LinkifyUtils
 import com.wenshu.app.util.TimeUtils
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.regex.Pattern
 
 class PostDetailActivity : AppCompatActivity() {
 
@@ -40,6 +66,10 @@ class PostDetailActivity : AppCompatActivity() {
     private var postId: String? = null
     private var currentPost: Post? = null
     private var replyToCommentId: String? = null
+    private var isVideoPlaying = false
+    private var currentVideoUrl: String? = null
+
+    private val urlPattern = Pattern.compile("https?://[^\\s]+")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +84,7 @@ class PostDetailActivity : AppCompatActivity() {
 
         setupToolbar()
         setupImagePager()
+        setupVideoView()
         setupComments()
         setupActions()
         setupCommentInput()
@@ -65,6 +96,53 @@ class PostDetailActivity : AppCompatActivity() {
 
     private fun setupToolbar() {
         binding.btnBack.setOnClickListener { finish() }
+        binding.btnMore.setOnClickListener { showMoreMenu(it) }
+    }
+
+    private fun showMoreMenu(anchor: View) {
+        val popupView = LayoutInflater.from(this).inflate(R.layout.dialog_post_more, null)
+        val popupWindow = PopupWindow(
+            popupView,
+            resources.getDimensionPixelSize(R.dimen.popup_menu_width),
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        popupWindow.elevation = 8f
+        popupWindow.setBackgroundDrawable(getDrawable(R.drawable.bg_bottom_sheet))
+
+        popupView.findViewById<View>(R.id.btn_share).setOnClickListener {
+            sharePost()
+            popupWindow.dismiss()
+        }
+        popupView.findViewById<View>(R.id.btn_copy_link).setOnClickListener {
+            val post = currentPost ?: return@setOnClickListener
+            val username = post.author?.username ?: "user"
+            val shareUrl = "https://wenshucom.vercel.app/$username/${post.id}"
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("post_link", shareUrl))
+            Toast.makeText(this, "链接已复制", Toast.LENGTH_SHORT).show()
+            popupWindow.dismiss()
+        }
+        popupView.findViewById<View>(R.id.btn_collect).setOnClickListener {
+            toggleCollect()
+            popupWindow.dismiss()
+        }
+        popupView.findViewById<View>(R.id.btn_report).setOnClickListener {
+            Toast.makeText(this, "已举报", Toast.LENGTH_SHORT).show()
+            popupWindow.dismiss()
+        }
+        popupView.findViewById<View>(R.id.btn_cancel).setOnClickListener {
+            popupWindow.dismiss()
+        }
+
+        val tvCollect = popupView.findViewById<TextView>(R.id.tv_collect)
+        if (currentPost?.isCollected == true) {
+            tvCollect.text = "取消收藏"
+        } else {
+            tvCollect.text = "收藏"
+        }
+
+        popupWindow.showAsDropDown(anchor, 0, 0)
     }
 
     private fun setupImagePager() {
@@ -77,6 +155,8 @@ class PostDetailActivity : AppCompatActivity() {
                 val width = binding.viewPagerImages.width
                 binding.viewPagerImages.layoutParams.height = width
                 binding.viewPagerImages.requestLayout()
+                binding.videoView.layoutParams.height = width
+                binding.videoView.requestLayout()
             }
         })
 
@@ -88,14 +168,62 @@ class PostDetailActivity : AppCompatActivity() {
         })
     }
 
+    private fun setupVideoView() {
+        binding.btnVideoPlay.setOnClickListener {
+            if (currentVideoUrl != null) {
+                playVideo(currentVideoUrl!!)
+            }
+        }
+        binding.videoView.setOnPreparedListener { mp ->
+            mp.isLooping = true
+            binding.btnVideoPlay.visibility = View.GONE
+            binding.viewPagerImages.visibility = View.GONE
+            binding.videoView.visibility = View.VISIBLE
+            isVideoPlaying = true
+        }
+        binding.videoView.setOnCompletionListener {
+            binding.btnVideoPlay.visibility = View.VISIBLE
+        }
+    }
+
+    private fun playVideo(url: String) {
+        val fullUrl = ImageUtils.normalizeUrl(url)
+        val videoUri = Uri.parse(fullUrl)
+        binding.videoView.setVideoURI(videoUri)
+        val mediaController = MediaController(this)
+        mediaController.setAnchorView(binding.videoView)
+        binding.videoView.setMediaController(mediaController)
+        binding.videoView.start()
+        binding.btnVideoPlay.visibility = View.GONE
+    }
+
     private fun updateImageIndicator(position: Int) {
-        val images = currentPost?.images ?: return
-        if (images.size <= 1) {
+        val images = currentPost?.images ?: emptyList()
+        val media = currentPost?.media ?: emptyList()
+        val imageItems = media.filter { it.type == "image" || it.type == "gif" }
+        val videoItems = media.filter { it.type == "video" }
+        val totalImages = images.size + imageItems.size
+
+        if (videoItems.isNotEmpty()) {
+            val video = videoItems.first()
+            currentVideoUrl = video.url
+            binding.btnVideoPlay.visibility = View.VISIBLE
+        } else {
+            currentVideoUrl = null
+            binding.btnVideoPlay.visibility = View.GONE
+        }
+
+        if (totalImages <= 1 && videoItems.isEmpty()) {
+            binding.tvImageIndicator.visibility = View.GONE
+            return
+        }
+        val totalCount = totalImages + if (videoItems.isNotEmpty()) 1 else 0
+        if (totalCount <= 1) {
             binding.tvImageIndicator.visibility = View.GONE
             return
         }
         binding.tvImageIndicator.visibility = View.VISIBLE
-        binding.tvImageIndicator.text = "${position + 1}/${images.size}"
+        binding.tvImageIndicator.text = "${position + 1}/$totalCount"
     }
 
     private fun setupDoubleTapLike() {
@@ -109,7 +237,7 @@ class PostDetailActivity : AppCompatActivity() {
                 return true
             }
         })
-        binding.viewPagerImages.getChildAt(0)?.setOnTouchListener { _, event ->
+        binding.layoutMediaContainer.setOnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event)
             false
         }
@@ -173,12 +301,6 @@ class PostDetailActivity : AppCompatActivity() {
         binding.layoutLike.setOnClickListener { toggleLike() }
         binding.layoutCollect.setOnClickListener { toggleCollect() }
         binding.layoutCoin.setOnClickListener { tipPost() }
-        binding.layoutComment.setOnClickListener {
-            binding.etComment.requestFocus()
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(binding.etComment, InputMethodManager.SHOW_IMPLICIT)
-        }
-        binding.layoutShare.setOnClickListener { sharePost() }
         binding.btnSendComment.setOnClickListener { sendComment() }
 
         binding.imgAvatar.setOnClickListener { navigateToUserProfile() }
@@ -251,13 +373,34 @@ class PostDetailActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupLinkifyContent(text: String) {
+        LinkifyUtils.setupClickableLinks(binding.tvContent, this, text)
+    }
+
+    private fun openUrl(url: String) {
+        LinkifyUtils.openUrl(this, url)
+    }
+
     private fun bindPost(post: Post) {
         with(binding) {
-            tvTitle.visibility = View.GONE
-            tvContent.text = post.content
+            val displayTitle = post.displayTitle
+            val displayContent = post.displayContent
+
+            if (displayTitle.isNotBlank() && (post.isLongText || post.title.isNotBlank())) {
+                tvTitle.visibility = View.VISIBLE
+                tvTitle.text = displayTitle
+                setupLinkifyContent(displayContent)
+            } else {
+                tvTitle.visibility = View.GONE
+                setupLinkifyContent(post.content)
+            }
+
             tvNickname.text = post.author?.displayName ?: ""
             tvTime.text = TimeUtils.formatRelativeTime(post.createdAt)
-            layoutLocation.visibility = View.GONE
+            layoutLocation.visibility = if (!post.location.isNullOrBlank()) View.VISIBLE else View.GONE
+            if (!post.location.isNullOrBlank()) {
+                tvLocation.text = post.location
+            }
             imgVerified.visibility = if (post.author?.isVip == true) View.VISIBLE else View.GONE
 
             Glide.with(this@PostDetailActivity)
@@ -267,7 +410,28 @@ class PostDetailActivity : AppCompatActivity() {
                 .centerCrop()
                 .into(imgAvatar)
 
-            imageAdapter.updateImages(post.images)
+            val allImages = mutableListOf<String>()
+            allImages.addAll(post.images)
+            val videoItems = post.media.filter { it.type == "video" }
+            val imageMediaItems = post.media.filter { it.type == "image" || it.type == "gif" }
+            imageMediaItems.forEach { allImages.add(it.url) }
+
+            if (videoItems.isNotEmpty()) {
+                currentVideoUrl = videoItems.first().url
+                btnVideoPlay.visibility = View.VISIBLE
+                if (allImages.isEmpty()) {
+                    viewPagerImages.visibility = View.GONE
+                } else {
+                    viewPagerImages.visibility = View.VISIBLE
+                }
+            } else {
+                currentVideoUrl = null
+                btnVideoPlay.visibility = View.GONE
+                viewPagerImages.visibility = View.VISIBLE
+                videoView.visibility = View.GONE
+            }
+
+            imageAdapter.updateImages(allImages)
             updateImageIndicator(0)
 
             updateLikeState(post.isLiked, post.likeCount)
@@ -287,6 +451,101 @@ class PostDetailActivity : AppCompatActivity() {
                 layoutTags.addView(tv)
             }
             layoutTags.visibility = if (post.tags.isEmpty()) View.GONE else View.VISIBLE
+
+            renderFiles(post.files)
+            renderUrlPreviews(post.urlPreviews)
+        }
+    }
+
+    private fun renderFiles(files: List<FileAttachment>) {
+        binding.layoutFiles.removeAllViews()
+        if (files.isEmpty()) {
+            binding.layoutFiles.visibility = View.GONE
+            return
+        }
+        binding.layoutFiles.visibility = View.VISIBLE
+        val inflater = LayoutInflater.from(this)
+        for (file in files) {
+            val view = inflater.inflate(R.layout.item_file_attachment, binding.layoutFiles, false)
+            val imgIcon = view.findViewById<ImageView>(R.id.img_file_icon)
+            val tvName = view.findViewById<TextView>(R.id.tv_file_name)
+            val tvInfo = view.findViewById<TextView>(R.id.tv_file_info)
+            val btnRemove = view.findViewById<ImageView>(R.id.btn_remove_file)
+
+            btnRemove.visibility = View.GONE
+            tvName.text = file.originalName
+
+            val expiresText = if (file.isPermanent) {
+                "永久保存"
+            } else if (file.expiresAt != null) {
+                val sdf = SimpleDateFormat("MM月dd日过期", Locale.CHINESE)
+                sdf.format(Date(file.expiresAt))
+            } else "14天后过期"
+            tvInfo.text = "${file.sizeFormatted} · $expiresText"
+
+            val iconRes = getFileIconResource(file.iconType, file.ext)
+            imgIcon.setImageResource(iconRes)
+
+            view.setOnClickListener {
+                val intent = Intent(this@PostDetailActivity, FileViewerActivity::class.java)
+                intent.putExtra(FileViewerActivity.EXTRA_FILE, file)
+                startActivity(intent)
+            }
+
+            binding.layoutFiles.addView(view)
+        }
+    }
+
+    private fun getFileIconResource(iconType: String, ext: String): Int {
+        return when (iconType) {
+            "image" -> R.drawable.ic_file_image
+            "video" -> R.drawable.ic_file_video
+            "audio" -> R.drawable.ic_file_audio
+            "document" -> R.drawable.ic_file_document
+            "spreadsheet" -> R.drawable.ic_file_spreadsheet
+            "presentation" -> R.drawable.ic_file_presentation
+            "archive" -> R.drawable.ic_file_archive
+            "code" -> R.drawable.ic_file_code
+            else -> when {
+                ext.equals("pdf", true) -> R.drawable.ic_file_document
+                ext.isEmpty() -> R.drawable.ic_file_unknown
+                else -> R.drawable.ic_file_generic
+            }
+        }
+    }
+
+    private fun renderUrlPreviews(previews: List<UrlPreview>) {
+        binding.layoutUrlPreviews.removeAllViews()
+        if (previews.isEmpty()) {
+            binding.layoutUrlPreviews.visibility = View.GONE
+            return
+        }
+        binding.layoutUrlPreviews.visibility = View.VISIBLE
+        val inflater = LayoutInflater.from(this)
+        for (preview in previews) {
+            val view = inflater.inflate(R.layout.item_url_preview, binding.layoutUrlPreviews, false)
+            val tvTitle = view.findViewById<TextView>(R.id.tv_url_title)
+            val tvUrl = view.findViewById<TextView>(R.id.tv_url_domain)
+            val imgFavicon = view.findViewById<ImageView>(R.id.img_favicon)
+
+            tvTitle.text = preview.title.ifBlank { preview.url }
+            tvUrl.text = Uri.parse(preview.url).host ?: preview.url
+
+            if (preview.favicon != null) {
+                Glide.with(this)
+                    .load(preview.favicon)
+                    .placeholder(R.drawable.ic_globe)
+                    .error(R.drawable.ic_globe)
+                    .into(imgFavicon)
+            } else {
+                imgFavicon.setImageResource(R.drawable.ic_globe)
+            }
+
+            view.setOnClickListener {
+                openUrl(preview.url)
+            }
+
+            binding.layoutUrlPreviews.addView(view)
         }
     }
 
@@ -352,8 +611,15 @@ class PostDetailActivity : AppCompatActivity() {
         val shareUrl = "https://wenshucom.vercel.app/$username/${post.id}"
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, "${post.content}\n\n$shareUrl\n—— 来自文书")
+            putExtra(Intent.EXTRA_TEXT, "${post.content.take(100)}\n\n$shareUrl\n—— 来自文书")
         }
         startActivity(Intent.createChooser(shareIntent, getString(R.string.share)))
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::binding.isInitialized) {
+            binding.videoView.stopPlayback()
+        }
     }
 }
