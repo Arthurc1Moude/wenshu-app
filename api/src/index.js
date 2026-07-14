@@ -39,6 +39,8 @@ import {
   getGames, saveGame
 } from './features-store.js';
 
+import { isR2Enabled, getPublicUrl, saveFile as storageSaveFile, deleteFile as storageDeleteFile, fileExists as storageFileExists, getFileStream, getSignedDownloadUrl, getLocalUploadDir } from './storage.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -52,11 +54,15 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 
-const uploadsDir = path.join(__dirname, '..', 'uploads');
+const uploadsDir = getLocalUploadDir();
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
-app.use('/uploads', express.static(uploadsDir));
+if (!isR2Enabled()) {
+  app.use('/uploads', express.static(uploadsDir));
+} else {
+  console.log('Cloudflare R2 storage enabled');
+}
 
 const MAX_SERVER_STORAGE = 50 * 1024 * 1024 * 1024;
 
@@ -160,10 +166,7 @@ async function cleanupExpiredFiles() {
       return;
     }
     for (const meta of expired) {
-      const filePath = path.join(uploadsDir, meta.filename);
-      if (fs.existsSync(filePath)) {
-        try { fs.unlinkSync(filePath); } catch(e) { console.error('Failed to delete expired file:', e.message); }
-      }
+      try { await storageDeleteFile(meta.filename); } catch(e) { console.error('Failed to delete expired file from storage:', e.message); }
       try { await deleteFileMeta(meta.id); } catch(e) {}
     }
     if (expired.length > 0) {
@@ -1750,7 +1753,7 @@ app.post('/api/upload', imageUpload.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: '上传失败' });
     const availableSpace = checkDiskSpace();
-    if (availableSpace < req.file.size + 100 * 1024 * 1024) {
+    if (!isR2Enabled() && availableSpace < req.file.size + 100 * 1024 * 1024) {
       try { fs.unlinkSync(req.file.path); } catch(e) {}
       return res.status(507).json({ error: '上传失败，云端空间不足！' });
     }
@@ -1781,8 +1784,17 @@ app.post('/api/upload', imageUpload.single('image'), async (req, res) => {
       uploaderId: userId
     };
     await saveFileMeta(meta);
+    if (isR2Enabled()) {
+      try {
+        await storageSaveFile(req.file.filename, req.file.path, req.file.mimetype || 'image/jpeg');
+      } catch(r2e) {
+        console.error('R2 upload error:', r2e.message);
+        await deleteFileMeta(meta.id);
+        return res.status(500).json({ error: '上传失败，云端存储异常' });
+      }
+    }
     res.json({
-      url: `/uploads/${req.file.filename}`,
+      url: getPublicUrl(req.file.filename),
       size: size,
       sizeFormatted: formatFileSize(size)
     });
@@ -1802,7 +1814,7 @@ app.post('/api/upload/media', mediaUpload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: '上传失败' });
     const availableSpace = checkDiskSpace();
-    if (availableSpace < req.file.size + 100 * 1024 * 1024) {
+    if (!isR2Enabled() && availableSpace < req.file.size + 100 * 1024 * 1024) {
       try { fs.unlinkSync(req.file.path); } catch(e) {}
       return res.status(507).json({ error: '上传失败，云端空间不足！' });
     }
@@ -1835,8 +1847,17 @@ app.post('/api/upload/media', mediaUpload.single('file'), async (req, res) => {
       uploaderId: userId
     };
     await saveFileMeta(meta);
+    if (isR2Enabled()) {
+      try {
+        await storageSaveFile(req.file.filename, req.file.path, req.file.mimetype || 'application/octet-stream');
+      } catch(r2e) {
+        console.error('R2 upload error:', r2e.message);
+        await deleteFileMeta(meta.id);
+        return res.status(500).json({ error: '上传失败，云端存储异常' });
+      }
+    }
     res.json({
-      url: `/uploads/${req.file.filename}`,
+      url: getPublicUrl(req.file.filename),
       type: mediaType,
       ext: ext,
       size: size,
@@ -1858,7 +1879,7 @@ app.post('/api/upload/file', fileUpload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: '上传失败' });
     const availableSpace = checkDiskSpace();
-    if (availableSpace < req.file.size + 100 * 1024 * 1024) {
+    if (!isR2Enabled() && availableSpace < req.file.size + 100 * 1024 * 1024) {
       try { fs.unlinkSync(req.file.path); } catch(e) {}
       return res.status(507).json({ error: '上传失败，云端空间不足！' });
     }
@@ -1890,9 +1911,18 @@ app.post('/api/upload/file', fileUpload.single('file'), async (req, res) => {
       uploaderId: userId
     };
     await saveFileMeta(meta);
+    if (isR2Enabled()) {
+      try {
+        await storageSaveFile(req.file.filename, req.file.path, req.file.mimetype || 'application/octet-stream');
+      } catch(r2e) {
+        console.error('R2 upload error:', r2e.message);
+        await deleteFileMeta(meta.id);
+        return res.status(500).json({ error: '上传失败，云端存储异常' });
+      }
+    }
     res.json({
       id: fileId,
-      url: `/uploads/${req.file.filename}`,
+      url: getPublicUrl(req.file.filename),
       originalName: req.file.originalname,
       ext: ext,
       size: size,
@@ -1919,7 +1949,7 @@ app.get('/api/files/:id/info', async (req, res) => {
     }
     res.json({
       id: meta.id,
-      url: `/uploads/${meta.filename}`,
+      url: getPublicUrl(meta.filename),
       originalName: meta.originalName,
       ext: meta.ext,
       size: meta.size,
@@ -2535,8 +2565,14 @@ async function startServer() {
 
   app.post('/api/books/upload', auth, fileUpload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: '请选择文件' });
-    const fileUrl = `/uploads/${req.file.filename}`;
-    res.json({ url: fileUrl, filename: req.file.originalname });
+    if (isR2Enabled()) {
+      try {
+        await storageSaveFile(req.file.filename, req.file.path, req.file.mimetype || 'application/octet-stream');
+      } catch(r2e) {
+        return res.status(500).json({ error: '上传失败，云端存储异常' });
+      }
+    }
+    res.json({ url: getPublicUrl(req.file.filename), filename: req.file.originalname });
   });
 
   app.post('/api/books/:id/read', authOptional, async (req, res) => {

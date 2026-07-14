@@ -15,6 +15,7 @@ import androidx.core.content.FileProvider
 import com.wenshu.app.R
 import com.wenshu.app.data.api.RetrofitClient
 import com.wenshu.app.data.model.FileAttachment
+import com.wenshu.app.util.ImageUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -116,8 +117,13 @@ class FileViewerActivity : AppCompatActivity() {
 
         downloadJob = CoroutineScope(Dispatchers.IO).launch {
             try {
-                val baseUrl = RetrofitClient.getBaseUrl()
-                val url = baseUrl + file.url.removePrefix("/")
+                val url = ImageUtils.normalizeUrl(file.url) ?: run {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@FileViewerActivity, "下载失败", Toast.LENGTH_SHORT).show()
+                        resetDownloadButton()
+                    }
+                    return@launch
+                }
                 val client = OkHttpClient()
                 val request = Request.Builder().url(url).build()
                 val response = client.newCall(request).execute()

@@ -110,7 +110,7 @@
             android:textSize="@dimen/text_body"
             android:fontFamily="serif"
             android:background="#F0F0F0"
-            android:allCaps="false" />
+            android:textAllCaps="false" />
 
         <Button
             android:id="@+id/btn_open_with"
@@ -122,7 +122,7 @@
             android:textSize="@dimen/text_body"
             android:fontFamily="serif"
             android:background="#000000"
-            android:allCaps="false"
+            android:textAllCaps="false"
             android:visibility="gone" />
     </LinearLayout>
 </LinearLayout>
