@@ -32,7 +32,7 @@ object LinkifyUtils {
         "(?<!\\d)(1[3-9]\\d{9}|\\d{3,4}-?\\d{7,8})(?!\\d)"
     )
 
-    private const val LINK_COLOR = Color.parseColor("#0066CC")
+    private val LINK_COLOR = Color.parseColor("#0066CC")
 
     fun setupClickableLinks(textView: TextView, context: Context, originalText: String) {
         val spannable = SpannableString(originalText)

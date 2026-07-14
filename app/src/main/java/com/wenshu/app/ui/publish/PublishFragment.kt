@@ -32,7 +32,6 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wenshu.app.MainActivity
 import com.wenshu.app.R
-import com.wenshu.app.data.model.PendingFile
 import com.wenshu.app.data.repository.DraftRepository
 import com.wenshu.app.databinding.DialogMediaPickerBinding
 import com.wenshu.app.databinding.DialogTopicSearchBinding

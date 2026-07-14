@@ -35,7 +35,7 @@ class PostCardAdapter(
     override fun onBindViewHolder(holder: PostViewHolder, position: Int) {
         val post = getItem(position)
         with(holder.binding) {
-            tvTitle.text = post.titlePreview
+            tvTitle.text = post.displayTitle
             tvUsername.text = post.author?.displayName ?: ""
             tvLikeCount.text = post.likeCount.toString()
             tvLikeCountOverlay.text = post.likeCount.toString()
