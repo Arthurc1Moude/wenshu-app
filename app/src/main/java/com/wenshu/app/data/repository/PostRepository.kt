@@ -11,9 +11,20 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 
-class PostRepository {
+class PostRepository private constructor() {
 
     private val api = RetrofitClient.apiService
+
+    companion object {
+        @Volatile
+        private var instance: PostRepository? = null
+
+        fun getInstance(): PostRepository {
+            return instance ?: synchronized(this) {
+                instance ?: PostRepository().also { instance = it }
+            }
+        }
+    }
 
     private val _posts = MutableLiveData<List<Post>>(emptyList())
     val posts: LiveData<List<Post>> = _posts
@@ -370,17 +381,6 @@ class PostRepository {
         val detail = _postDetail.value
         if (detail != null && detail.id == postId) {
             _postDetail.postValue(detail.copy(isTipped = isTipped, coinCount = coinCount))
-        }
-    }
-
-    companion object {
-        @Volatile
-        private var instance: PostRepository? = null
-
-        fun getInstance(): PostRepository {
-            return instance ?: synchronized(this) {
-                instance ?: PostRepository().also { instance = it }
-            }
         }
     }
 }

@@ -123,8 +123,9 @@
                 <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="-12dp"
-                    android:clipChildren="false">
+                    android:layout_marginTop="-32dp"
+                    android:clipChildren="false"
+                    android:clipToPadding="false">
 
                     <ImageView
                         android:id="@+id/img_avatar"
@@ -134,6 +135,7 @@
                         android:layout_marginStart="@dimen/spacing_lg"
                         android:scaleType="centerCrop"
                         android:elevation="8dp"
+                        android:background="@drawable/bg_circle_avatar_border"
                         android:contentDescription="@null" />
                 </FrameLayout>
 
