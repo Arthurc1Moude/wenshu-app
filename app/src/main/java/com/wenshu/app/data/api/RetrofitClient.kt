@@ -24,7 +24,7 @@ class ApiException(
 object RetrofitClient {
 
     private const val BASE_URL = "https://wenshu-server.onrender.com/api/"
-    private const val TIMEOUT_SECONDS = 30L
+    private const val TIMEOUT_SECONDS = 120L
 
     private val gson: Gson = GsonBuilder()
         .registerTypeAdapter(Long::class.java, object : JsonDeserializer<Long> {

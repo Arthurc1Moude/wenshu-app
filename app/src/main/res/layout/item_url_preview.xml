@@ -3,45 +3,54 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:background="@drawable/bg_chip"
+    android:gravity="center_vertical"
     android:padding="@dimen/spacing_md"
-    android:layout_marginBottom="@dimen/spacing_sm"
-    android:gravity="center_vertical">
+    android:background="@color/paper">
 
     <ImageView
         android:id="@+id/img_favicon"
         android:layout_width="20dp"
         android:layout_height="20dp"
-        android:scaleType="centerCrop"
+        android:layout_marginEnd="@dimen/spacing_sm"
+        android:src="@drawable/ic_globe"
         android:contentDescription="@null" />
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:layout_marginStart="@dimen/spacing_sm"
         android:orientation="vertical">
 
         <TextView
             android:id="@+id/tv_url_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/primary"
+            android:text=""
+            android:textColor="@color/text_primary"
             android:textSize="@dimen/text_body"
             android:fontFamily="serif"
-            android:maxLines="2"
-            android:ellipsize="end"
-            android:textColorLink="@color/primary" />
+            android:maxLines="1"
+            android:ellipsize="end" />
 
         <TextView
-            android:id="@+id/tv_url_domain"
+            android:id="@+id/tv_url_host"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/text_tertiary"
+            android:text=""
+            android:textColor="@color/text_hint"
             android:textSize="@dimen/text_caption"
             android:fontFamily="serif"
             android:layout_marginTop="2dp"
             android:maxLines="1"
             android:ellipsize="end" />
     </LinearLayout>
+
+    <ImageView
+        android:id="@+id/btn_remove_url"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:padding="4dp"
+        android:src="@drawable/ic_close"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="移除" />
 </LinearLayout>

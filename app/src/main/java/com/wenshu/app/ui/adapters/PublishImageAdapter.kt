@@ -16,7 +16,6 @@ class PublishImageAdapter(
 ) : RecyclerView.Adapter<PublishImageAdapter.ImageViewHolder>() {
 
     private val images = mutableListOf<String>()
-    private val videoExtensions = setOf("mp4", "avi", "mov", "wmv", "flv", "mkv", "webm", "3gp")
     private val maxImages = 9
 
     inner class ImageViewHolder(val binding: ItemPublishImageBinding) : RecyclerView.ViewHolder(binding.root)
@@ -31,22 +30,19 @@ class PublishImageAdapter(
     override fun onBindViewHolder(holder: ImageViewHolder, position: Int) {
         with(holder.binding) {
             if (position < images.size) {
-                val path = images[position]
+                val imagePath = images[position]
                 btnAdd.visibility = View.GONE
                 btnRemove.visibility = View.VISIBLE
                 imgPreview.visibility = View.VISIBLE
 
-                val isVideo = isVideoFile(path)
-                icPlayVideo.visibility = if (isVideo) View.VISIBLE else View.GONE
-
                 try {
-                    val uri: Uri = if (path.startsWith("http") || path.startsWith("content://")) {
-                        Uri.parse(path)
+                    val uri: Uri = if (imagePath.startsWith("http") || imagePath.startsWith("content://")) {
+                        Uri.parse(imagePath)
                     } else {
-                        Uri.fromFile(File(path))
+                        Uri.fromFile(File(imagePath))
                     }
                     Glide.with(imgPreview.context)
-                        .load(if (isVideo) Uri.fromFile(File(path)) else uri)
+                        .load(uri)
                         .centerCrop()
                         .placeholder(R.color.paper)
                         .error(R.color.paper)
@@ -59,17 +55,11 @@ class PublishImageAdapter(
             } else {
                 imgPreview.setImageDrawable(null)
                 imgPreview.visibility = View.GONE
-                icPlayVideo.visibility = View.GONE
                 btnRemove.visibility = View.GONE
                 btnAdd.visibility = View.VISIBLE
                 btnAdd.setOnClickListener { onAddClick() }
             }
         }
-    }
-
-    private fun isVideoFile(path: String): Boolean {
-        val ext = path.substringAfterLast(".", "").lowercase()
-        return videoExtensions.contains(ext)
     }
 
     override fun getItemCount(): Int {

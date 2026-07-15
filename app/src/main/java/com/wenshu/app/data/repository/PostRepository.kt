@@ -171,37 +171,9 @@ class PostRepository {
         return result
     }
 
-    suspend fun uploadImage(imagePath: String): Result<String> {
-        return try {
-            val file = File(imagePath)
-            val mimeType = when {
-                imagePath.endsWith(".gif", true) -> "image/gif"
-                imagePath.endsWith(".webp", true) -> "image/webp"
-                imagePath.endsWith(".png", true) -> "image/png"
-                else -> "image/jpeg"
-            }
-            val requestFile = file.asRequestBody(mimeType.toMediaTypeOrNull())
-            val part = MultipartBody.Part.createFormData("image", file.name, requestFile)
-            val result = safeApiCall { api.uploadImage(part) }
-            result.map { it.url }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun uploadMedia(filePath: String): Result<MediaUploadResponse> {
+    suspend fun uploadMedia(filePath: String, mimeType: String = "image/*"): Result<UploadResponse> {
         return try {
             val file = File(filePath)
-            val mimeType = when {
-                filePath.endsWith(".mp4", true) -> "video/mp4"
-                filePath.endsWith(".mov", true) -> "video/quicktime"
-                filePath.endsWith(".avi", true) -> "video/x-msvideo"
-                filePath.endsWith(".mkv", true) -> "video/x-matroska"
-                filePath.endsWith(".webm", true) -> "video/webm"
-                filePath.endsWith(".3gp", true) -> "video/3gpp"
-                filePath.endsWith(".gif", true) -> "image/gif"
-                else -> "application/octet-stream"
-            }
             val requestFile = file.asRequestBody(mimeType.toMediaTypeOrNull())
             val part = MultipartBody.Part.createFormData("file", file.name, requestFile)
             safeApiCall { api.uploadMedia(part) }
@@ -210,10 +182,10 @@ class PostRepository {
         }
     }
 
-    suspend fun uploadFile(filePath: String): Result<FileUploadResponse> {
+    suspend fun uploadFile(filePath: String, mimeType: String = "application/octet-stream"): Result<UploadResponse> {
         return try {
             val file = File(filePath)
-            val requestFile = file.asRequestBody("application/octet-stream".toMediaTypeOrNull())
+            val requestFile = file.asRequestBody(mimeType.toMediaTypeOrNull())
             val part = MultipartBody.Part.createFormData("file", file.name, requestFile)
             safeApiCall { api.uploadFile(part) }
         } catch (e: Exception) {
@@ -221,27 +193,51 @@ class PostRepository {
         }
     }
 
+    suspend fun getFileInfo(fileId: String): Result<FileAttachment> {
+        return safeApiCall { api.getFileInfo(fileId) }
+    }
+
+    suspend fun getUrlPreview(url: String): Result<UrlPreview> {
+        return safeApiCall { api.getUrlPreview(url) }
+    }
+
+    suspend fun reportContent(targetType: String, targetId: String, reason: String = ""): Result<SimpleResponse> {
+        return safeApiCall { api.reportContent(ReportRequest(targetType, targetId, reason)) }
+    }
+
+    suspend fun deletePost(postId: String): Result<SimpleResponse> {
+        return safeApiCall { api.deletePost(postId) }
+    }
+
     suspend fun createPost(
         content: String,
         title: String = "",
         images: List<String> = emptyList(),
-        tags: List<String> = emptyList(),
-        media: List<MediaItem> = emptyList(),
+        videos: List<VideoAttachment> = emptyList(),
         files: List<FileAttachment> = emptyList(),
-        isLongText: Boolean = false,
-        location: String? = null,
+        tags: List<String> = emptyList(),
+        location: String = "",
+        isLongPost: Boolean = false,
         urlPreviews: List<UrlPreview> = emptyList()
     ): Result<Post> {
         _isLoading.postValue(true)
+        val fileMaps = files.map { f ->
+            mapOf(
+                "id" to f.id,
+                "filename" to f.filename,
+                "size" to f.size.toString(),
+                "mimeType" to f.mimeType
+            )
+        }
         val request = PostRequest(
             content = content,
             title = title,
             images = images,
-            media = media,
-            files = files,
+            videos = videos,
+            files = fileMaps,
             tags = tags,
-            isLongText = isLongText,
             location = location,
+            isLongPost = isLongPost,
             urlPreviews = urlPreviews
         )
         val result = safeApiCall { api.createPost(request) }
@@ -302,9 +298,9 @@ class PostRepository {
         return safeApiCall { api.getUserById(userId) }
     }
 
-    suspend fun updateProfile(username: String? = null, bio: String? = null, location: String? = null, avatar: String? = null, cover: String? = null): Result<User> {
+    suspend fun updateProfile(username: String? = null, bio: String? = null, location: String? = null, avatar: String? = null, cover: String? = null, phone: String? = null): Result<User> {
         _isLoading.postValue(true)
-        val result = safeApiCall { api.updateProfile(UpdateUserRequest(username = username, bio = bio, location = location, avatar = avatar, cover = cover)) }
+        val result = safeApiCall { api.updateProfile(UpdateUserRequest(username = username, bio = bio, location = location, avatar = avatar, cover = cover, phone = phone)) }
         result.onSuccess { user ->
             SharedPreferencesManager.updateUser(user)
         }.onFailure { _error.postValue(it.message) }
@@ -316,6 +312,14 @@ class PostRepository {
         val result = safeApiCall { api.getCurrentUser() }
         result.onSuccess { SharedPreferencesManager.updateUser(it) }
         return result
+    }
+
+    suspend fun sendVerificationCode(phone: String, purpose: String = "bind"): Result<SendCodeResponse> {
+        return safeApiCall { api.sendVerificationCode(SendCodeRequest(phone, purpose)) }
+    }
+
+    suspend fun bindPhone(phone: String, code: String): Result<SimpleResponse> {
+        return safeApiCall { api.bindPhone(BindPhoneRequest(phone, code)) }
     }
 
     private fun updatePostLikeState(postId: String, isLiked: Boolean, likeCount: Int) {

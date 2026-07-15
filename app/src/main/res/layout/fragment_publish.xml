@@ -70,6 +70,22 @@
                 android:nestedScrollingEnabled="false"
                 android:layout_marginBottom="@dimen/spacing_md" />
 
+            <LinearLayout
+                android:id="@+id/layout_videos"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="@dimen/spacing_md"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/layout_files"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="@dimen/spacing_md"
+                android:visibility="gone" />
+
             <EditText
                 android:id="@+id/et_title"
                 android:layout_width="match_parent"
@@ -104,7 +120,7 @@
                 android:layout_marginBottom="@dimen/spacing_lg" />
 
             <LinearLayout
-                android:id="@+id/layout_selected_files"
+                android:id="@+id/layout_url_previews"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -225,14 +241,14 @@
             android:contentDescription="添加媒体" />
 
         <ImageView
-            android:id="@+id/btn_attach_file"
+            android:id="@+id/btn_rich_editor"
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:padding="6dp"
-            android:src="@drawable/ic_attach_file"
+            android:src="@drawable/ic_long_text"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:layout_marginStart="@dimen/spacing_md"
-            android:contentDescription="添加文件" />
+            android:contentDescription="长文编辑" />
 
         <ImageView
             android:id="@+id/btn_add_title"
@@ -243,16 +259,6 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:layout_marginStart="@dimen/spacing_md"
             android:contentDescription="标题" />
-
-        <ImageView
-            android:id="@+id/btn_long_text"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:padding="6dp"
-            android:src="@drawable/ic_long_text"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:layout_marginStart="@dimen/spacing_md"
-            android:contentDescription="长文模式" />
 
         <View
             android:layout_width="0dp"

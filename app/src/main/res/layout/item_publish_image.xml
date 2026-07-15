@@ -12,17 +12,6 @@
         android:background="@color/paper" />
 
     <ImageView
-        android:id="@+id/ic_play_video"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_gravity="center"
-        android:src="@drawable/ic_play_circle"
-        android:background="@drawable/bg_circle_dark"
-        android:padding="6dp"
-        android:visibility="gone"
-        android:contentDescription="视频" />
-
-    <ImageView
         android:id="@+id/btn_remove"
         android:layout_width="20dp"
         android:layout_height="20dp"
@@ -55,7 +44,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="添加媒体"
+                android:text="添加图片"
                 android:textColor="@color/text_hint"
                 android:textSize="12sp"
                 android:layout_marginTop="4dp"

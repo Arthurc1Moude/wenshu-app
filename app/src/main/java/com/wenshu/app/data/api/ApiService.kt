@@ -39,12 +39,28 @@ interface ApiService {
     suspend fun uploadImage(@Part image: MultipartBody.Part): UploadResponse
 
     @Multipart
-    @POST("upload/media")
-    suspend fun uploadMedia(@Part file: MultipartBody.Part): MediaUploadResponse
+    @POST("upload/image")
+    suspend fun uploadMedia(@Part file: MultipartBody.Part): UploadResponse
 
     @Multipart
     @POST("upload/file")
-    suspend fun uploadFile(@Part file: MultipartBody.Part): FileUploadResponse
+    suspend fun uploadFile(@Part file: MultipartBody.Part): UploadResponse
+
+    @GET("files/{id}")
+    suspend fun getFileInfo(@Path("id") fileId: String): FileAttachment
+
+    @GET("files/{id}/download")
+    @Streaming
+    suspend fun downloadFile(@Path("id") fileId: String): okhttp3.ResponseBody
+
+    @GET("url-preview")
+    suspend fun getUrlPreview(@Query("url") url: String): UrlPreview
+
+    @POST("reports")
+    suspend fun reportContent(@Body request: ReportRequest): SimpleResponse
+
+    @DELETE("posts/{id}")
+    suspend fun deletePost(@Path("id") postId: String): SimpleResponse
 
     @POST("posts/{id}/like")
     suspend fun toggleLike(@Path("id") postId: String): LikeResponse

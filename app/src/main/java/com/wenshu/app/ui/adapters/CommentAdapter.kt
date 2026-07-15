@@ -15,6 +15,7 @@ import com.bumptech.glide.Glide
 import com.wenshu.app.R
 import com.wenshu.app.data.model.Comment
 import com.wenshu.app.databinding.ItemCommentBinding
+import com.wenshu.app.ui.web.WebViewActivity
 import com.wenshu.app.util.ImageUtils
 import com.wenshu.app.util.LinkifyUtils
 import com.wenshu.app.util.TimeUtils
@@ -47,7 +48,12 @@ class CommentAdapter(
             } else {
                 comment.content
             }
-            LinkifyUtils.setupClickableLinks(tvContent, root.context, displayContent)
+            tvContent.text = displayContent
+            LinkifyUtils.linkify(tvContent) { url ->
+                val intent = android.content.Intent(root.context, WebViewActivity::class.java)
+                intent.putExtra("url", url)
+                root.context.startActivity(intent)
+            }
             tvTime.text = TimeUtils.formatRelativeTime(comment.createdAt)
             tvLikeCount.text = if (comment.likeCount > 0) comment.likeCount.toString() else ""
 
@@ -116,7 +122,12 @@ class CommentAdapter(
             } else {
                 reply.content
             }
-            LinkifyUtils.setupClickableLinks(tvContent, context, replyText)
+            tvContent.text = replyText
+            LinkifyUtils.linkify(tvContent) { url ->
+                val intent = android.content.Intent(context, WebViewActivity::class.java)
+                intent.putExtra("url", url)
+                context.startActivity(intent)
+            }
             tvUsername.text = reply.author?.displayName ?: "用户"
             tvTime.text = TimeUtils.formatRelativeTime(reply.createdAt)
             tvLikeCount.text = if (reply.likeCount > 0) reply.likeCount.toString() else ""

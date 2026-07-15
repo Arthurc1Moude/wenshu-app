@@ -28,6 +28,11 @@ import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        var appContext: android.content.Context? = null
+            private set
+    }
+
     private lateinit var binding: ActivityMainBinding
 
     private var homeFragment: HomeFragment? = null
@@ -43,6 +48,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        appContext = applicationContext
         Log.d("MainActivity", "onCreate started")
 
         if (!SharedPreferencesManager.isLoggedIn()) {

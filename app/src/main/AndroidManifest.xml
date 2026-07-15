@@ -8,14 +8,10 @@
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
 
     <application
         android:name=".WenshuApp"
@@ -26,7 +22,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.WenshuApp"
         android:networkSecurityConfig="@xml/network_security_config"
-        tools:targetApi="31">
+        tools:targetApi="34">
 
         <activity
             android:name=".SplashActivity"
@@ -178,17 +174,18 @@
             android:screenOrientation="portrait" />
 
         <activity
+            android:name=".ui.file.FileViewerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.publish.RichEditorActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".ui.secret.SecretSpaceActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
-
-        <activity
-            android:name=".ui.fileviewer.FileViewerActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
-
-        <activity
-            android:name=".ui.webview.WebViewActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
