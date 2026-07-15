@@ -4,30 +4,13 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#1A1A1A"
-        android:strokeWidth="4.2"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M54,28L53.5,37" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#1A1A1A"
-        android:strokeWidth="4.2"
-        android:strokeLineCap="round"
-        android:pathData="M32,42L76,42" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#1A1A1A"
-        android:strokeWidth="4.2"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M54,42C48,54 38,64 31,71M54,42C60,54 70,64 77,71" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#1A1A1A"
-        android:strokeWidth="3.8"
-        android:strokeLineCap="round"
-        android:pathData="M35,67C44,72 54,73 73,67" />
+    <group
+        android:translateX="-34"
+        android:translateY="-33"
+        android:scaleX="0.282"
+        android:scaleY="0.282">
+        <path
+            android:fillColor="#000000"
+            android:pathData="M379.6,238.1L393.625,242.225C382.075,276.142 367.317,305.383 349.35,329.95C331.383,354.333 309.75,374.958 284.45,391.825C259.333,408.508 229.908,422.442 196.175,433.625C195.808,432.342 195.075,430.875 193.975,429.225C193.058,427.758 192.05,426.2 190.95,424.55C189.85,423.083 188.75,421.8 187.65,420.7C221.017,410.8 249.983,397.783 274.55,381.65C299.3,365.333 320.292,345.442 337.525,321.975C354.942,298.508 368.967,270.55 379.6,238.1ZM243.475,239.2C253.925,269.817 267.95,297.317 285.55,321.7C303.15,345.9 324.6,366.433 349.9,383.3C375.383,400.167 404.808,412.633 438.175,420.7C437.075,421.617 435.883,422.808 434.6,424.275C433.5,425.925 432.4,427.483 431.3,428.95C430.2,430.6 429.192,432.067 428.275,433.35C394.725,424.55 365.208,411.442 339.725,394.025C314.242,376.425 292.517,354.975 274.55,329.675C256.583,304.192 242.008,275.317 230.825,243.05L243.475,239.2ZM189.85,232.05L436.525,232.05L436.525,244.975L189.85,244.975ZM305.35,183.375L318.825,183.375L318.825,240.025L305.35,240.025Z"/>
+    </group>
 </vector>

@@ -609,7 +609,6 @@ class PublishFragment : Fragment() {
 
     private fun setupButtons() {
         binding.btnAddMedia.setOnClickListener { checkPermissionsAndShowPicker() }
-        binding.btnAddFile.setOnClickListener { pickFile() }
 
         binding.btnAddTitle.setOnClickListener {
             hasTitle = !hasTitle
@@ -663,7 +662,7 @@ class PublishFragment : Fragment() {
         val host = try {
             java.net.URL(preview.url).host
         } catch (e: Exception) { preview.url }
-        itemBinding.tvUrlHost.text = host
+        itemBinding.tvUrlSite.text = host
         if (preview.favicon != null) {
             Glide.with(requireContext())
                 .load(ImageUtils.normalizeUrl(preview.favicon!!))
