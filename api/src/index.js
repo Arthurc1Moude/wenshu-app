@@ -27,8 +27,7 @@ import {
   getCommentLikes, addCommentLike, removeCommentLike, isCommentLikedByUser, getCommentLikeCount,
   getGroupChats, getGroupChatById, getGroupChatByNumber, saveGroupChat,
   getGroupMembers, getUserGroups, addGroupMember, removeGroupMember, isGroupMember, generateGroupNumber,
-  getTips, addTip,
-  saveFileMeta, getFileMeta, getAllFileMeta, getExpiredFileMeta, deleteFileMeta, getTotalStorage
+  getTips, addTip
 } from './db.js';
 
 import {
@@ -39,7 +38,16 @@ import {
   getGames, saveGame
 } from './features-store.js';
 
-import { isR2Enabled, getPublicUrl, saveFile as storageSaveFile, deleteFile as storageDeleteFile, fileExists as storageFileExists, getFileStream, getSignedDownloadUrl, getLocalUploadDir } from './storage.js';
+import { uploadFile, deleteFile as deleteStorageFile, getFileUrl, getFileStream, initStorage } from './file-storage.js';
+import { sendSmsCode, generateCode } from './sms.js';
+import { fetchUrlPreview } from './url-preview.js';
+import {
+  saveFile as dbSaveFile, getFileById as dbGetFileById, getFilesByPost as dbGetFilesByPost,
+  getFilesByUploader, deleteFile as dbDeleteFile, incrementFileDownload,
+  getExpiredFiles, getUserTotalStorage,
+  saveUrlPreview as dbSaveUrlPreview, getUrlPreview as dbGetUrlPreview,
+  saveReport as dbSaveReport
+} from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,161 +55,43 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+let isServerReady = false;
+
+app.use((req, res, next) => {
+  if (!isServerReady && !req.path.startsWith('/api/health')) {
+    return res.status(503).json({ error: '服务器正在启动中，请稍后重试' });
+  }
+  next();
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: isServerReady ? 'ok' : 'starting', port: PORT });
+});
 
 app.use(cors({
   origin: CORS_ORIGIN === '*' ? true : CORS_ORIGIN.split(','),
   credentials: true
 }));
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '200mb' }));
 
-const uploadsDir = getLocalUploadDir();
+const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
-if (!isR2Enabled()) {
-  app.use('/uploads', express.static(uploadsDir));
-} else {
-  console.log('Cloudflare R2 storage enabled');
-}
+app.use('/uploads', express.static(uploadsDir));
 
-const MAX_SERVER_STORAGE = 50 * 1024 * 1024 * 1024;
+const MEM_STORAGE_LIMIT = 2000 * 1024 * 1024;
+const memoryStorage = multer.memoryStorage();
+const uploadMemory = multer({ storage: memoryStorage, limits: { fileSize: MEM_STORAGE_LIMIT } });
 
-function checkDiskSpace() {
-  try {
-    const stats = fs.statfsSync(uploadsDir);
-    const availableBytes = stats.bavail * stats.bsize;
-    return availableBytes;
-  } catch (e) {
-    try {
-      const totalUsed = getTotalUsedSpace();
-      if (totalUsed > MAX_SERVER_STORAGE * 0.95) return 0;
-      return MAX_SERVER_STORAGE - totalUsed;
-    } catch (e2) {
-      return 1024 * 1024 * 1024;
-    }
-  }
-}
-
-function getTotalUsedSpace() {
-  let total = 0;
-  try {
-    const files = fs.readdirSync(uploadsDir);
-    for (const f of files) {
-      try {
-        const fp = path.join(uploadsDir, f);
-        const stat = fs.statSync(fp);
-        total += stat.size;
-      } catch (e) {}
-    }
-  } catch (e) {}
-  return total;
-}
-
-function getFileExtension(filename) {
-  const ext = path.extname(filename).toLowerCase().replace('.', '');
-  return ext || 'unknown';
-}
-
-function getFileIconByExt(ext) {
-  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'heic', 'heif'];
-  const videoExts = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm', '3gp'];
-  const audioExts = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a'];
-  const docExts = ['doc', 'docx', 'pdf', 'txt', 'rtf', 'odt'];
-  const xlsExts = ['xls', 'xlsx', 'csv', 'ods'];
-  const pptExts = ['ppt', 'pptx', 'odp'];
-  const zipExts = ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'];
-  const codeExts = ['js', 'ts', 'py', 'java', 'cpp', 'c', 'html', 'css', 'json', 'xml', 'kt', 'swift'];
-  if (imageExts.includes(ext)) return 'image';
-  if (videoExts.includes(ext)) return 'video';
-  if (audioExts.includes(ext)) return 'audio';
-  if (docExts.includes(ext)) return 'document';
-  if (xlsExts.includes(ext)) return 'spreadsheet';
-  if (pptExts.includes(ext)) return 'presentation';
-  if (zipExts.includes(ext)) return 'archive';
-  if (codeExts.includes(ext)) return 'code';
-  return 'unknown';
-}
-
-function formatFileSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-}
-
-async function getUserUploadLimit(userId) {
-  if (!userId) return { limit: 1024 * 1024 * 1024, isPermanent: false, label: '普通用户' };
-  const users = await getUsers();
-  const user = users.find(u => u.id === userId);
-  if (!user) return { limit: 1024 * 1024 * 1024, isPermanent: false, label: '普通用户' };
-  if (user.isAdmin) return { limit: Infinity, isPermanent: true, label: '管理员' };
-  const now = Date.now();
-  if (user.vipLevel >= 2 && user.vipExpiresAt && user.vipExpiresAt > now) {
-    return { limit: 20 * 1024 * 1024 * 1024, isPermanent: true, label: '文书会年卡' };
-  }
-  if (user.vipLevel >= 1 && user.vipExpiresAt && user.vipExpiresAt > now) {
-    return { limit: 16 * 1024 * 1024 * 1024, isPermanent: false, label: '文书会月卡' };
-  }
-  return { limit: 1024 * 1024 * 1024, isPermanent: false, label: '普通用户' };
-}
-
-function getUploadLimitMessage(bytes, limitInfo) {
-  const GB = 1024 * 1024 * 1024;
-  if (bytes > limitInfo.limit) {
-    if (limitInfo.limit === 1 * GB) return '仅会员可上传超出1GB的文件';
-    if (limitInfo.limit === 16 * GB) return '需升级到会员年卡获得最高20GB上传上限';
-    if (limitInfo.limit === 20 * GB) return '仅管理员可上传>20GB的文件';
-    return '超出上传限制';
-  }
-  return null;
-}
-
-async function cleanupExpiredFiles() {
-  try {
-    const now = Date.now();
-    let expired = [];
-    try {
-      expired = await getExpiredFileMeta(now);
-    } catch (dbErr) {
-      return;
-    }
-    for (const meta of expired) {
-      try { await storageDeleteFile(meta.filename); } catch(e) { console.error('Failed to delete expired file from storage:', e.message); }
-      try { await deleteFileMeta(meta.id); } catch(e) {}
-    }
-    if (expired.length > 0) {
-      console.log(`Cleaned up ${expired.length} expired files`);
-    }
-  } catch (e) {
-    console.error('Error cleaning up expired files:', e.message);
-  }
-}
-
-setInterval(cleanupExpiredFiles, 60 * 60 * 1000);
-
-const fileStorage = multer.diskStorage({
+const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    const uniqueName = `${uuidv4()}${ext}`;
-    cb(null, uniqueName);
+    cb(null, `${uuidv4()}${ext}`);
   }
 });
-
-const imageUpload = multer({
-  storage: fileStorage,
-  limits: { fileSize: 500 * 1024 * 1024 }
-});
-
-const mediaUpload = multer({
-  storage: fileStorage,
-  limits: { fileSize: 25 * 1024 * 1024 * 1024 }
-});
-
-const fileUpload = multer({
-  storage: fileStorage,
-  limits: { fileSize: 25 * 1024 * 1024 * 1024 }
-});
+const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
 
 function getTodayStr() {
   const d = new Date();
@@ -337,8 +227,23 @@ function decoratePost(post, currentUserId, users, likes, collects, tips) {
   const tippedBy = post.tippedBy || (tips ? tips.filter(t => t.postId === post.id).map(t => t.userId) : []);
   const isTipped = currentUserId ? (tippedBy.includes(currentUserId) || (tips ? tips.some(t => t.postId === post.id && t.userId === currentUserId) : false)) : false;
   return {
-    ...post,
+    id: post.id,
+    authorId: post.authorId,
+    title: post.title || '',
+    content: post.content || '',
+    images: Array.isArray(post.images) ? post.images : [],
+    videos: Array.isArray(post.videos) ? post.videos : [],
+    files: Array.isArray(post.files) ? post.files : [],
+    tags: Array.isArray(post.tags) ? post.tags : [],
+    likeCount: post.likeCount || 0,
+    commentCount: post.commentCount || 0,
+    collectCount: post.collectCount || 0,
+    urlPreviews: Array.isArray(post.urlPreviews) ? post.urlPreviews : [],
+    location: post.location || '',
+    isLongPost: post.isLongPost || false,
+    createdAt: post.createdAt || Date.now(),
     coinCount,
+    tippedBy: Array.isArray(tippedBy) ? tippedBy : [],
     author: author ? getUserPublic(author) : null,
     isLiked: currentUserId ? likes.some(l => l.postId === post.id && l.userId === currentUserId) : false,
     isCollected: currentUserId ? collects.some(c => c.postId === post.id && c.userId === currentUserId) : false,
@@ -346,7 +251,7 @@ function decoratePost(post, currentUserId, users, likes, collects, tips) {
   };
 }
 
-async function createNotification(userId, type, content, fromUserId, postId) {
+async function createNotification(userId, type, content, fromUserId, postId, commentId) {
   const users = await getUsers();
   const fromUser = fromUserId ? users.find(u => u.id === fromUserId) : null;
   const notif = {
@@ -356,6 +261,7 @@ async function createNotification(userId, type, content, fromUserId, postId) {
     fromUserId: fromUserId || null,
     fromUser: fromUser ? { id: fromUser.id, username: fromUser.username, avatar: fromUser.avatar, isVip: fromUser.isVip, vipLevel: fromUser.vipLevel } : null,
     postId: postId || null,
+    commentId: commentId || null,
     content,
     isRead: false,
     createdAt: Date.now()
@@ -368,7 +274,7 @@ async function addCoins(userId, amount, reason) {
   const users = await getUsers();
   const user = users.find(u => u.id === userId);
   if (!user) return null;
-  user.wenshuCoin = (user.wenshuCoin || 0) + amount;
+  user.wenshuCoin = Number(user.wenshuCoin || 0) + amount;
   await saveUser(user);
   await createNotification(userId, 'system', `获得${amount}文书币：${reason}`, null, null);
   return user;
@@ -676,7 +582,7 @@ app.post('/api/coin/signin', async (req, res) => {
         break;
     }
 
-    user.wenshuCoin = (user.wenshuCoin || 0) + coinsReward;
+    user.wenshuCoin = Number(user.wenshuCoin || 0) + coinsReward;
     user.lastSignInDate = today;
     user.isSignedInToday = true;
     await saveUser(user);
@@ -709,7 +615,7 @@ app.post('/api/coin/join-qq', async (req, res) => {
     if (!user) return res.status(401).json({ error: '未登录' });
     if (user.joinedQQGroup) return res.status(400).json({ error: '已领取过QQ群奖励' });
     user.joinedQQGroup = true;
-    user.wenshuCoin += 200;
+    user.wenshuCoin = Number(user.wenshuCoin || 0) + 200;
     await saveUser(user);
     await createNotification(user.id, 'system', '加入QQ群奖励：获得200文书币！QQ群号：702404026', null, null);
     res.json({ coins: 200, totalCoins: user.wenshuCoin });
@@ -733,7 +639,7 @@ app.post('/api/vip/purchase', async (req, res) => {
     user.vipLevel = 1;
     user.vipExp = 0;
     user.vipExpiresAt = Date.now() + 365 * 24 * 3600 * 1000;
-    user.wenshuCoin += 500;
+    user.wenshuCoin = Number(user.wenshuCoin || 0) + 500;
     await saveUser(user);
 
     await createNotification(user.id, 'vip', '欢迎加入文书会！获得500文书币开通奖励，开始享受会员特权吧！', null, null);
@@ -787,7 +693,7 @@ app.post('/api/redeem', async (req, res) => {
       });
       await createNotification(user.id, 'vip', '🎉 兑换成功！文书会VIP已激活，开始享受会员特权吧！', null, null);
     } else {
-      user.wenshuCoin += redeemCode.coinValue;
+      user.wenshuCoin = Number(user.wenshuCoin || 0) + Number(redeemCode.coinValue);
       responseData.coins = redeemCode.coinValue;
       responseData.totalCoins = user.wenshuCoin;
       await addRedeemRecord({
@@ -831,14 +737,14 @@ app.get('/api/posts', async (req, res) => {
     const likes = await getLikes();
     const collects = await getCollects();
     const blacklists = await getBlacklists();
-    const tipsList = getTips();
+    const tipsList = await getTips();
 
     if (currentUserId) {
       const blockedUserIds = blacklists.filter(b => b.userId === currentUserId).map(b => b.blockedUserId);
       posts = posts.filter(p => !blockedUserIds.includes(p.authorId));
     }
 
-    if (tag) posts = posts.filter(p => p.tags.some(t => t.includes(tag)));
+    if (tag) posts = posts.filter(p => (p.tags || []).some(t => t.includes(tag)));
     if (userId) posts = posts.filter(p => p.authorId === userId);
 
     if (sort === 'hot') {
@@ -847,7 +753,25 @@ app.get('/api/posts', async (req, res) => {
       posts = [...posts].sort((a, b) => b.createdAt - a.createdAt);
     }
 
-    res.json(posts.map(p => decoratePost(p, currentUserId, users, likes, collects, tipsList)));
+    const result = [];
+    for (const p of posts) {
+      let fileDetails = [];
+      if (p.files && p.files.length > 0) {
+        for (const fref of p.files) {
+          if (typeof fref === 'string') {
+            const f = await dbGetFileById(fref);
+            if (f) fileDetails.push({ id: f.id, filename: f.originalName, size: f.size, mimeType: f.mimeType, url: getFileUrl(f.storedKey, f.storageType), expiresAt: f.expiresAt, isPermanent: f.isPermanent });
+          } else if (fref.id) {
+            fileDetails.push(fref);
+          }
+        }
+      }
+      const decorated = decoratePost(p, currentUserId, users, likes, collects, tipsList);
+      decorated.files = fileDetails;
+      result.push(decorated);
+    }
+
+    res.json(result);
   } catch (e) {
     console.error('Get posts error:', e);
     res.status(500).json({ error: '服务器错误' });
@@ -861,10 +785,24 @@ app.get('/api/posts/:id', async (req, res) => {
     const users = await getUsers();
     const likes = await getLikes();
     const collects = await getCollects();
-    const tipsList = getTips();
+    const tipsList = await getTips();
     const post = posts.find(p => p.id === req.params.id);
     if (!post) return res.status(404).json({ error: '帖子不存在' });
-    res.json(decoratePost(post, currentUserId, users, likes, collects, tipsList));
+
+    let fileDetails = [];
+    if (post.files && post.files.length > 0) {
+      for (const fref of post.files) {
+        if (typeof fref === 'string') {
+          const f = await dbGetFileById(fref);
+          if (f) fileDetails.push({ id: f.id, filename: f.originalName, size: f.size, mimeType: f.mimeType, url: getFileUrl(f.storedKey, f.storageType), expiresAt: f.expiresAt, isPermanent: f.isPermanent });
+        } else if (fref.id) {
+          fileDetails.push(fref);
+        }
+      }
+    }
+    const decorated = decoratePost(post, currentUserId, users, likes, collects, tipsList);
+    decorated.files = fileDetails;
+    res.json(decorated);
   } catch (e) {
     console.error('Get post error:', e);
     res.status(500).json({ error: '服务器错误' });
@@ -878,20 +816,21 @@ app.post('/api/posts', async (req, res) => {
     const users = await getUsers();
     const user = users.find(u => u.id === userId);
     if (!user) return res.status(401).json({ error: '未登录' });
-    const { content, images, media, files, tags, title, isLongText, location, urlPreviews } = req.body;
+    const { content, images, videos, files, tags, title, location, isLongPost, urlPreviews } = req.body;
     if (!content || !content.trim()) return res.status(400).json({ error: '内容不能为空' });
 
-    const postImages = images || [];
-    const postMedia = media || [];
-    const hasAnyMedia = postImages.length > 0 || postMedia.length > 0 || (files && files.length > 0);
+    const hasImages = (images && images.length > 0) || (videos && videos.length > 0);
+    if (!hasImages) {
+      return res.status(400).json({ error: '请添加至少一张图片' });
+    }
 
     const post = {
       id: genId('post'),
       authorId: userId,
       title: title || '',
       content: content.trim(),
-      images: postImages,
-      media: postMedia,
+      images: images || [],
+      videos: videos || [],
       files: files || [],
       tags: tags || [],
       likeCount: 0,
@@ -899,12 +838,25 @@ app.post('/api/posts', async (req, res) => {
       collectCount: 0,
       coinCount: 0,
       tippedBy: [],
-      isLongText: isLongText || false,
-      location: location || null,
+      location: location || '',
+      isLongPost: !!isLongPost,
       urlPreviews: urlPreviews || [],
       createdAt: Date.now()
     };
     await savePost(post);
+
+    if (files && files.length > 0) {
+      for (const fileInfo of files) {
+        if (fileInfo.id) {
+          const f = await dbGetFileById(fileInfo.id);
+          if (f) {
+            f.postId = post.id;
+            await dbSaveFile(f);
+          }
+        }
+      }
+    }
+
     await addVipExp(userId, 20);
 
     if (tags && tags.length > 0) {
@@ -1025,12 +977,12 @@ app.post('/api/posts/:id/tip', async (req, res) => {
       return res.status(400).json({ error: '文书币不足', code: 'INSUFFICIENT_COINS' });
     }
 
-    me.wenshuCoin = (me.wenshuCoin || 0) - amount;
+    me.wenshuCoin = Number(me.wenshuCoin || 0) - amount;
     await saveUser(me);
 
     const author = users.find(u => u.id === post.authorId);
     if (author) {
-      author.wenshuCoin = (author.wenshuCoin || 0) + amount;
+      author.wenshuCoin = Number(author.wenshuCoin || 0) + amount;
       await saveUser(author);
     }
 
@@ -1051,6 +1003,43 @@ app.post('/api/posts/:id/tip', async (req, res) => {
     res.json({ coinCount: post.coinCount, isTipped, amount, totalCoins: me.wenshuCoin });
   } catch (e) {
     console.error('Tip error:', e);
+    res.status(500).json({ error: '服务器错误' });
+  }
+});
+
+app.delete('/api/posts/:id', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    const posts = await getPosts();
+    const idx = posts.findIndex(p => p.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '帖子不存在' });
+    const post = posts[idx];
+
+    const users = await getUsers();
+    const me = users.find(u => u.id === userId);
+    if (post.authorId !== userId && !(me && me.isAdmin)) {
+      return res.status(403).json({ error: '无权限删除此帖子' });
+    }
+
+    posts.splice(idx, 1);
+    await savePosts(posts);
+
+    const likes = await getLikes();
+    const newLikes = likes.filter(l => l.postId !== post.id);
+    await saveLikes(newLikes);
+
+    const collects = await getCollects();
+    const newCollects = collects.filter(c => c.postId !== post.id);
+    await saveCollects(newCollects);
+
+    const comments = await getComments();
+    const newComments = comments.filter(c => c.postId !== post.id);
+    await saveComments(newComments);
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Delete post error:', e);
     res.status(500).json({ error: '服务器错误' });
   }
 });
@@ -1138,11 +1127,15 @@ app.post('/api/posts/:id/comments', async (req, res) => {
 
     await addVipExp(userId, 5);
 
-    if (post.authorId !== userId) {
-      const replyToUser = replyToId ? users.find(u => u.id === replyToId) : null;
-      const notifContent = replyToUser ? `回复了你的评论：${content.slice(0, 20)}` : `评论了你的帖子：${content.slice(0, 20)}`;
-      const notifyUserId = replyToId || post.authorId;
-      await createNotification(notifyUserId, 'comment', notifContent, userId, post.id);
+    if (replyToId) {
+      const replyToUser = users.find(u => u.id === replyToId);
+      if (replyToUser && replyToId !== userId) {
+        await createNotification(replyToId, 'reply', `回复了你的评论：${content.slice(0, 20)}`, userId, post.id, comment.id);
+      }
+    } else {
+      if (post.authorId !== userId) {
+        await createNotification(post.authorId, 'comment', `评论了你的帖子：${content.slice(0, 20)}`, userId, post.id, comment.id);
+      }
     }
 
     const replyToUser = replyToId ? users.find(u => u.id === replyToId) : null;
@@ -1177,7 +1170,7 @@ app.post('/api/comments/:id/like', async (req, res) => {
       comment.likeCount = (comment.likeCount || 0) + 1;
       isLiked = true;
       if (comment.authorId !== userId) {
-        await createNotification(comment.authorId, 'comment_like', '赞了你的评论', userId, comment.postId);
+        await createNotification(comment.authorId, 'comment_like', '赞了你的评论', userId, comment.postId, comment.id);
       }
       await addVipExp(userId, 1);
     }
@@ -1243,8 +1236,22 @@ app.get('/api/notifications', async (req, res) => {
   try {
     const userId = getUserId(req);
     if (!userId) return res.json({ notifications: [], unreadCount: 0 });
-    const notifications = await getNotifications();
-    const userNotifs = notifications.filter(n => n.userId === userId).sort((a, b) => b.createdAt - a.createdAt);
+    let notifications = await getNotifications();
+    const users = await getUsers();
+    let userNotifs = notifications.filter(n => n.userId === userId).sort((a, b) => b.createdAt - a.createdAt);
+    userNotifs = userNotifs.map(n => {
+      const fromUser = n.fromUserId ? users.find(u => u.id === n.fromUserId) : null;
+      return {
+        ...n,
+        fromUser: fromUser ? {
+          id: fromUser.id,
+          username: fromUser.username,
+          avatar: fromUser.avatar,
+          isVip: fromUser.isVip,
+          vipLevel: fromUser.vipLevel
+        } : (n.fromUser || null)
+      };
+    });
     const unreadCount = userNotifs.filter(n => !n.isRead).length;
     res.json({ notifications: userNotifs, unreadCount });
   } catch (e) {
@@ -1575,11 +1582,11 @@ app.post('/api/auth/send-code', async (req, res) => {
     if (!phone || !validatePhone(phone)) {
       return res.status(400).json({ error: '手机号格式不正确' });
     }
-    if (!purpose || !['register', 'bind_phone', 'change_password'].includes(purpose)) {
+    if (!purpose || !['register', 'bind_phone', 'change_password', 'login'].includes(purpose)) {
       return res.status(400).json({ error: '无效的验证类型' });
     }
     
-    const code = generateVerificationCode();
+    const code = generateCode();
     const vc = {
       id: genId('vc'),
       phone,
@@ -1591,12 +1598,13 @@ app.post('/api/auth/send-code', async (req, res) => {
     };
     await saveVerificationCode(vc);
     
-    console.log(`📱 验证码已发送到 ${phone}: ${code} (用途: ${purpose})`);
+    const smsResult = await sendSmsCode(phone, code);
     
+    const isProd = process.env.NODE_ENV === 'production';
     res.json({ 
       success: true, 
-      message: `验证码已发送：${code}`,
-      devCode: code
+      message: '验证码已发送',
+      devCode: isProd && smsResult.provider !== 'console' ? undefined : code
     });
   } catch (e) {
     console.error('Send code error:', e);
@@ -1700,266 +1708,486 @@ app.post('/api/auth/change-password', async (req, res) => {
 // ========== SEARCH ==========
 app.get('/api/search', async (req, res) => {
   try {
-    const { q } = req.query;
+    const { q, type } = req.query;
     const currentUserId = getUserId(req);
-    if (!q || !q.trim()) return res.json({ posts: [], users: [] });
+    if (!q || !q.trim()) return res.json({ posts: [], users: [], tags: [], comments: [] });
     const query = q.trim();
-    const queryLower = query.toLowerCase();
-    const keywords = queryLower.split(/\s+/).filter(k => k.length > 0);
+    const queryLower = String(query).toLowerCase();
 
-    function textMatches(text) {
-      if (!text) return false;
-      const t = text.toLowerCase();
-      if (keywords.length === 0) return t.includes(queryLower);
-      return keywords.every(kw => t.includes(kw));
+    const keywords = [];
+    let hashTagQuery = null;
+    let usernameQuery = null;
+
+    if (query.startsWith('#')) {
+      hashTagQuery = query.substring(1).toLowerCase().trim();
+    } else if (query.startsWith('@')) {
+      usernameQuery = query.substring(1).toLowerCase().trim();
     }
 
-    const posts = await getPosts();
-    const users = await getUsers();
-    const likes = await getLikes();
-    const collects = await getCollects();
-    const comments = await getComments();
+    const segments = queryLower.split(/[\s,，。.!！?？；;、#@"'""''（）()\[\]【】]+/).filter(k => k && k.length >= 1);
+    for (const seg of segments) {
+      if (seg && seg.length >= 1) keywords.push(seg);
+    }
+    if (queryLower.length >= 1 && keywords.length === 0) keywords.push(queryLower);
+
+    function safeString(val) {
+      if (val === null || val === undefined) return '';
+      return String(val).toLowerCase();
+    }
+
+    function textMatches(text) {
+      if (text === null || text === undefined) return false;
+      const t = safeString(text);
+      if (!t) return false;
+      if (t.includes(queryLower)) return true;
+      for (const kw of keywords) {
+        if (kw && kw.length >= 1 && t.includes(kw)) return true;
+      }
+      return false;
+    }
+
+    let posts = [], users = [];
+    let likes = [], collects = [], comments = [], tips = [];
+    try { posts = (await getPosts()) || []; } catch(e) { console.error('getPosts error in search:', e); posts = []; }
+    try { users = (await getUsers()) || []; } catch(e) { console.error('getUsers error in search:', e); users = []; }
+    try { likes = (await getLikes()) || []; } catch(e) { likes = []; }
+    try { collects = (await getCollects()) || []; } catch(e) { collects = []; }
+    try { comments = (await getComments()) || []; } catch(e) { comments = []; }
+    try { tips = (await getTips()) || []; } catch(e) { tips = []; }
+
+    if (!Array.isArray(posts)) posts = [];
+    if (!Array.isArray(users)) users = [];
+    if (!Array.isArray(likes)) likes = [];
+    if (!Array.isArray(collects)) collects = [];
+    if (!Array.isArray(comments)) comments = [];
+    if (!Array.isArray(tips)) tips = [];
 
     const postIdsWithComments = new Set();
+    const matchedComments = [];
     for (const c of comments) {
-      if (textMatches(c.content)) {
-        postIdsWithComments.add(c.postId);
+      try {
+        if (!c) continue;
+        if (textMatches(c.content)) {
+          postIdsWithComments.add(c.postId);
+          const commentAuthorId = c.authorId || c.userId;
+          const commentAuthor = commentAuthorId ? users.find(u => u && u.id === commentAuthorId) : null;
+          const post = posts.find(p => p && p.id === c.postId);
+          const postAuthorId = post ? post.authorId : null;
+          const postAuthorUser = postAuthorId ? users.find(u => u && u.id === postAuthorId) : null;
+          matchedComments.push({
+            id: String(c.id || ''),
+            content: String(c.content || ''),
+            postId: String(c.postId || ''),
+            postTitle: post ? String(post.title || '') : '',
+            postAuthor: postAuthorUser ? String(postAuthorUser.username || '') : '',
+            author: commentAuthor ? {
+              id: String(commentAuthor.id || ''),
+              username: String(commentAuthor.username || ''),
+              avatar: commentAuthor.avatar ? String(commentAuthor.avatar) : null
+            } : null,
+            createdAt: Number(c.createdAt) || Date.now()
+          });
+        }
+      } catch(e) {
+        console.error('Error processing comment in search:', e);
       }
     }
 
-    const matchedPosts = posts.filter(p => {
-      if (textMatches(p.content)) return true;
-      if (p.tags && p.tags.some(t => textMatches(t) || textMatches('#' + t))) return true;
-      if (postIdsWithComments.has(p.id)) return true;
-      return false;
-    }).slice(0, 50);
+    const tagCountMap = {};
+    for (const p of posts) {
+      try {
+        if (!p) continue;
+        if (p.tags && Array.isArray(p.tags)) {
+          for (const t of p.tags) {
+            if (t === null || t === undefined) continue;
+            const tagStr = String(t);
+            if (!tagStr) continue;
+            const tagLower = tagStr.toLowerCase();
+            const matches = hashTagQuery
+              ? tagLower.includes(hashTagQuery)
+              : textMatches(tagStr);
+            if (matches) {
+              tagCountMap[tagStr] = (tagCountMap[tagStr] || 0) + 1;
+            }
+          }
+        }
+      } catch(e) {
+        console.error('Error processing post tags in search:', e);
+      }
+    }
+    const matchedTags = Object.entries(tagCountMap)
+      .map(([tag, count]) => ({ tag: String(tag), count: Number(count) || 0 }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 20);
 
-    const matchedUsers = users.filter(u => {
-      if (textMatches(u.username)) return true;
-      if (textMatches(u.bio)) return true;
-      return false;
-    }).slice(0, 30).map(u => getUserPublic(u));
+    const filterType = type || 'all';
 
-    const postsWithAuthor = matchedPosts.map(p => decoratePost(p, currentUserId, users, likes, collects, getTips()));
-    res.json({ posts: postsWithAuthor, users: matchedUsers });
+    let matchedPosts = [];
+    if (filterType === 'all' || filterType === 'posts') {
+      for (const p of posts) {
+        try {
+          if (!p) continue;
+          let matches = false;
+          if (textMatches(p.content) || textMatches(p.title)) matches = true;
+          if (!matches && p.tags && Array.isArray(p.tags)) {
+            for (const t of p.tags) {
+              if (t === null || t === undefined) continue;
+              const tagStr = String(t);
+              const tagLower = tagStr.toLowerCase();
+              if (hashTagQuery ? tagLower.includes(hashTagQuery) : textMatches(tagStr)) {
+                matches = true;
+                break;
+              }
+            }
+          }
+          if (!matches && postIdsWithComments.has(p.id)) matches = true;
+          if (!matches && p.authorId) {
+            const author = users.find(u => u && u.id === p.authorId);
+            if (author) {
+              if (usernameQuery) {
+                if (safeString(author.username).includes(usernameQuery)) matches = true;
+              } else {
+                if (textMatches(author.username) || textMatches(author.bio || '')) matches = true;
+              }
+            }
+          }
+          if (matches) matchedPosts.push(p);
+        } catch(e) {
+          console.error('Error processing post in search:', e);
+        }
+        if (matchedPosts.length >= 50) break;
+      }
+    }
+
+    let matchedUsers = [];
+    if (filterType === 'all' || filterType === 'users') {
+      for (const u of users) {
+        try {
+          if (!u) continue;
+          const uname = safeString(u.username);
+          let matches = false;
+          if (usernameQuery) {
+            matches = uname.includes(usernameQuery);
+          } else {
+            matches = textMatches(u.username) || textMatches(u.bio || '');
+          }
+          if (matches) {
+            matchedUsers.push(getUserPublic(u));
+          }
+        } catch(e) {
+          console.error('Error processing user in search:', e);
+        }
+        if (matchedUsers.length >= 30) break;
+      }
+    }
+
+    const postsWithAuthor = [];
+    for (const p of matchedPosts) {
+      try {
+        postsWithAuthor.push(decoratePost(p, currentUserId, users, likes, collects, tips));
+      } catch(e) {
+        try {
+          postsWithAuthor.push(decoratePost(p, currentUserId, users, [], [], []));
+        } catch(e2) {
+          console.error('Failed to decorate post in search:', e2);
+        }
+      }
+    }
+
+    res.json({
+      posts: postsWithAuthor,
+      users: matchedUsers,
+      tags: matchedTags,
+      comments: matchedComments.slice(0, 30)
+    });
   } catch (e) {
     console.error('Search error:', e);
-    res.status(500).json({ error: '服务器错误', posts: [], users: [] });
+    res.status(500).json({ error: '服务器错误', posts: [], users: [], tags: [], comments: [] });
   }
 });
 
 // ========== UPLOAD ==========
-app.post('/api/upload', imageUpload.single('image'), async (req, res) => {
+function getUserUploadLimit(user) {
+  if (!user) return { maxSize: 100 * 1024 * 1024, isPermanent: false };
+  if (user.isAdmin) return { maxSize: Infinity, isPermanent: true };
+  if (user.isVip && user.vipLevel >= 2) return { maxSize: 20 * 1024 * 1024 * 1024, isPermanent: true };
+  if (user.isVip && user.vipLevel >= 1) return { maxSize: 16 * 1024 * 1024 * 1024, isPermanent: false };
+  return { maxSize: 1 * 1024 * 1024 * 1024, isPermanent: false };
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + 'GB';
+}
+
+app.post('/api/upload', uploadMemory.any(), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: '上传失败' });
-    const availableSpace = checkDiskSpace();
-    if (!isR2Enabled() && availableSpace < req.file.size + 100 * 1024 * 1024) {
-      try { fs.unlinkSync(req.file.path); } catch(e) {}
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    const uploadedFile = req.files && req.files.length > 0 ? req.files[0] : null;
+    if (!uploadedFile) return res.status(400).json({ error: '请选择文件' });
+
+    const users = await getUsers();
+    const user = users.find(u => u.id === userId);
+    const { maxSize, isPermanent } = getUserUploadLimit(user);
+
+    if (uploadedFile.size > maxSize) {
+      let msg = '仅会员可上传超出1GB的文件';
+      if (user?.isVip && user.vipLevel >= 1) msg = '需升级到会员年卡获得最高20GB上传上限';
+      if (user?.isVip && user.vipLevel >= 2) msg = '仅管理员可上传>20GB的文件';
+      return res.status(400).json({ error: msg });
+    }
+
+    const totalUsed = await getUserTotalStorage(userId);
+    if (totalUsed + uploadedFile.size > 50 * 1024 * 1024 * 1024) {
       return res.status(507).json({ error: '上传失败，云端空间不足！' });
     }
-    const userId = getUserId(req);
-    const limitInfo = await getUserUploadLimit(userId);
-    const size = req.file.size;
-    const limitMsg = getUploadLimitMessage(size, limitInfo);
-    if (limitMsg) {
-      try { fs.unlinkSync(req.file.path); } catch(e) {}
-      return res.status(403).json({ error: limitMsg });
-    }
-    const ext = getFileExtension(req.file.originalname);
-    const fileId = genId('img');
-    const now = Date.now();
-    const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
-    const expiresAt = limitInfo.isPermanent ? null : now + FOURTEEN_DAYS;
-    const meta = {
-      id: fileId,
-      filename: req.file.filename,
-      originalName: req.file.originalname,
-      ext: ext,
-      size: size,
-      sizeFormatted: formatFileSize(size),
-      iconType: 'image',
-      uploadedAt: now,
-      expiresAt: expiresAt,
-      isPermanent: limitInfo.isPermanent,
-      uploaderId: userId
+
+    const result = await uploadFile(uploadedFile.buffer, uploadedFile.originalname, uploadedFile.mimetype);
+    const expiresAt = isPermanent ? null : Date.now() + 14 * 24 * 60 * 60 * 1000;
+
+    const fileRecord = {
+      id: genId('file'),
+      uploaderId: userId,
+      originalName: uploadedFile.originalname,
+      storedKey: result.key,
+      mimeType: uploadedFile.mimetype || 'application/octet-stream',
+      size: uploadedFile.size,
+      storageType: result.storageType,
+      expiresAt,
+      isPermanent,
+      downloadCount: 0,
+      createdAt: Date.now(),
     };
-    await saveFileMeta(meta);
-    if (isR2Enabled()) {
-      try {
-        await storageSaveFile(req.file.filename, req.file.path, req.file.mimetype || 'image/jpeg');
-      } catch(r2e) {
-        console.error('R2 upload error:', r2e.message);
-        await deleteFileMeta(meta.id);
-        return res.status(500).json({ error: '上传失败，云端存储异常' });
-      }
-    }
+    await dbSaveFile(fileRecord);
+
+    const url = getFileUrl(result.key, result.storageType);
     res.json({
-      url: getPublicUrl(req.file.filename),
-      size: size,
-      sizeFormatted: formatFileSize(size)
+      id: fileRecord.id,
+      url,
+      filename: uploadedFile.originalname,
+      size: uploadedFile.size,
+      mimeType: fileRecord.mimeType,
+      expiresAt,
+      isPermanent,
     });
   } catch (e) {
-    if (e.code === 'LIMIT_FILE_SIZE') {
-      return res.status(413).json({ error: '文件过大' });
-    }
-    if (e.code === 'ENOSPC') {
-      return res.status(507).json({ error: '上传失败，云端空间不足！' });
-    }
-    console.error('Image upload error:', e);
-    res.status(500).json({ error: '上传失败' });
+    console.error('Upload error:', e);
+    res.status(500).json({ error: '上传失败: ' + e.message });
   }
 });
 
-app.post('/api/upload/media', mediaUpload.single('file'), async (req, res) => {
+app.post('/api/upload/image', uploadMemory.single('file'), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: '上传失败' });
-    const availableSpace = checkDiskSpace();
-    if (!isR2Enabled() && availableSpace < req.file.size + 100 * 1024 * 1024) {
-      try { fs.unlinkSync(req.file.path); } catch(e) {}
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    if (!req.file) return res.status(400).json({ error: '请选择文件' });
+
+    const users = await getUsers();
+    const user = users.find(u => u.id === userId);
+    const { maxSize } = getUserUploadLimit(user);
+
+    if (req.file.size > maxSize) {
+      let msg = '仅会员可上传超出1GB的文件';
+      if (user?.isVip && user.vipLevel >= 1) msg = '需升级到会员年卡获得最高20GB上传上限';
+      if (user?.isVip && user.vipLevel >= 2) msg = '仅管理员可上传>20GB的文件';
+      return res.status(400).json({ error: msg });
+    }
+
+    const totalUsed = await getUserTotalStorage(userId);
+    if (totalUsed + req.file.size > 50 * 1024 * 1024 * 1024) {
       return res.status(507).json({ error: '上传失败，云端空间不足！' });
     }
-    const userId = getUserId(req);
-    const limitInfo = await getUserUploadLimit(userId);
-    const size = req.file.size;
-    const limitMsg = getUploadLimitMessage(size, limitInfo);
-    if (limitMsg) {
-      try { fs.unlinkSync(req.file.path); } catch(e) {}
-      return res.status(403).json({ error: limitMsg });
-    }
-    const ext = getFileExtension(req.file.originalname);
-    const mimetype = req.file.mimetype || '';
-    const mediaType = mimetype.startsWith('video/') ? 'video' : mimetype.startsWith('image/') ? 'image' : 'file';
-    const fileId = genId('med');
-    const now = Date.now();
-    const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
-    const expiresAt = limitInfo.isPermanent ? null : now + FOURTEEN_DAYS;
-    const meta = {
-      id: fileId,
-      filename: req.file.filename,
+
+    const result = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+    const { isPermanent } = getUserUploadLimit(user);
+    const expiresAt = isPermanent ? null : Date.now() + 14 * 24 * 60 * 60 * 1000;
+
+    const fileRecord = {
+      id: genId('file'),
+      uploaderId: userId,
       originalName: req.file.originalname,
-      ext: ext,
-      size: size,
-      sizeFormatted: formatFileSize(size),
-      iconType: mediaType,
-      uploadedAt: now,
-      expiresAt: expiresAt,
-      isPermanent: limitInfo.isPermanent,
-      uploaderId: userId
+      storedKey: result.key,
+      mimeType: req.file.mimetype || 'application/octet-stream',
+      size: req.file.size,
+      storageType: result.storageType,
+      expiresAt,
+      isPermanent,
+      downloadCount: 0,
+      createdAt: Date.now(),
     };
-    await saveFileMeta(meta);
-    if (isR2Enabled()) {
-      try {
-        await storageSaveFile(req.file.filename, req.file.path, req.file.mimetype || 'application/octet-stream');
-      } catch(r2e) {
-        console.error('R2 upload error:', r2e.message);
-        await deleteFileMeta(meta.id);
-        return res.status(500).json({ error: '上传失败，云端存储异常' });
-      }
-    }
+    await dbSaveFile(fileRecord);
+
+    const url = getFileUrl(result.key, result.storageType);
     res.json({
-      url: getPublicUrl(req.file.filename),
-      type: mediaType,
-      ext: ext,
-      size: size,
-      sizeFormatted: formatFileSize(size)
+      id: fileRecord.id,
+      url,
+      filename: req.file.originalname,
+      size: req.file.size,
+      mimeType: fileRecord.mimeType,
+      expiresAt,
+      isPermanent,
     });
   } catch (e) {
-    if (e.code === 'LIMIT_FILE_SIZE') {
-      return res.status(413).json({ error: '文件过大' });
-    }
-    if (e.code === 'ENOSPC') {
-      return res.status(507).json({ error: '上传失败，云端空间不足！' });
-    }
-    console.error('Media upload error:', e);
-    res.status(500).json({ error: '上传失败' });
+    console.error('Upload error:', e);
+    res.status(500).json({ error: '上传失败: ' + e.message });
   }
 });
 
-app.post('/api/upload/file', fileUpload.single('file'), async (req, res) => {
+app.post('/api/upload/file', uploadMemory.single('file'), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: '上传失败' });
-    const availableSpace = checkDiskSpace();
-    if (!isR2Enabled() && availableSpace < req.file.size + 100 * 1024 * 1024) {
-      try { fs.unlinkSync(req.file.path); } catch(e) {}
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    if (!req.file) return res.status(400).json({ error: '请选择文件' });
+
+    const users = await getUsers();
+    const user = users.find(u => u.id === userId);
+    const { maxSize, isPermanent: perm } = getUserUploadLimit(user);
+
+    if (req.file.size > maxSize) {
+      let msg = '仅会员可上传超出1GB的文件';
+      if (user?.isVip && user.vipLevel >= 1) msg = '需升级到会员年卡获得最高20GB上传上限';
+      if (user?.isVip && user.vipLevel >= 2) msg = '仅管理员可上传>20GB的文件';
+      return res.status(400).json({ error: msg });
+    }
+
+    const totalUsed = await getUserTotalStorage(userId);
+    if (totalUsed + req.file.size > 50 * 1024 * 1024 * 1024) {
       return res.status(507).json({ error: '上传失败，云端空间不足！' });
     }
-    const userId = getUserId(req);
-    const limitInfo = await getUserUploadLimit(userId);
-    const size = req.file.size;
-    const limitMsg = getUploadLimitMessage(size, limitInfo);
-    if (limitMsg) {
-      try { fs.unlinkSync(req.file.path); } catch(e) {}
-      return res.status(403).json({ error: limitMsg });
-    }
-    const ext = getFileExtension(req.file.originalname);
-    const fileId = genId('file');
-    const now = Date.now();
-    const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
-    const expiresAt = limitInfo.isPermanent ? null : now + FOURTEEN_DAYS;
-    const iconType = getFileIconByExt(ext);
-    const meta = {
-      id: fileId,
-      filename: req.file.filename,
+
+    const result = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+    const expiresAt = perm ? null : Date.now() + 14 * 24 * 60 * 60 * 1000;
+
+    const fileRecord = {
+      id: genId('file'),
+      uploaderId: userId,
       originalName: req.file.originalname,
-      ext: ext,
-      size: size,
-      sizeFormatted: formatFileSize(size),
-      iconType: iconType,
-      uploadedAt: now,
-      expiresAt: expiresAt,
-      isPermanent: limitInfo.isPermanent,
-      uploaderId: userId
+      storedKey: result.key,
+      mimeType: req.file.mimetype || 'application/octet-stream',
+      size: req.file.size,
+      storageType: result.storageType,
+      expiresAt,
+      isPermanent: perm,
+      downloadCount: 0,
+      createdAt: Date.now(),
     };
-    await saveFileMeta(meta);
-    if (isR2Enabled()) {
-      try {
-        await storageSaveFile(req.file.filename, req.file.path, req.file.mimetype || 'application/octet-stream');
-      } catch(r2e) {
-        console.error('R2 upload error:', r2e.message);
-        await deleteFileMeta(meta.id);
-        return res.status(500).json({ error: '上传失败，云端存储异常' });
-      }
-    }
+    await dbSaveFile(fileRecord);
+
+    const url = getFileUrl(result.key, result.storageType);
     res.json({
-      id: fileId,
-      url: getPublicUrl(req.file.filename),
-      originalName: req.file.originalname,
-      ext: ext,
-      size: size,
-      sizeFormatted: formatFileSize(size),
-      iconType: iconType,
-      expiresAt: expiresAt,
-      isPermanent: limitInfo.isPermanent
+      id: fileRecord.id,
+      url,
+      filename: req.file.originalname,
+      size: req.file.size,
+      mimeType: fileRecord.mimeType,
+      expiresAt,
+      isPermanent: perm,
     });
   } catch (e) {
-    if (e.code === 'ENOSPC') {
-      return res.status(507).json({ error: '上传失败，云端空间不足！' });
-    }
     console.error('File upload error:', e);
-    res.status(500).json({ error: '上传失败' });
+    res.status(500).json({ error: '上传失败: ' + e.message });
   }
 });
 
-app.get('/api/files/:id/info', async (req, res) => {
+app.get('/api/files/:id', async (req, res) => {
   try {
-    const meta = await getFileMeta(req.params.id);
-    if (!meta) return res.status(404).json({ error: '文件不存在或已过期' });
-    if (meta.expiresAt && meta.expiresAt < Date.now()) {
-      return res.status(404).json({ error: '文件不存在或已过期' });
+    const file = await dbGetFileById(req.params.id);
+    if (!file) return res.status(404).json({ error: '文件不存在或已过期' });
+    if (file.expiresAt && file.expiresAt < Date.now() && !file.isPermanent) {
+      return res.status(410).json({ error: '文件已过期' });
     }
     res.json({
-      id: meta.id,
-      url: getPublicUrl(meta.filename),
-      originalName: meta.originalName,
-      ext: meta.ext,
-      size: meta.size,
-      sizeFormatted: meta.sizeFormatted,
-      iconType: meta.iconType,
-      expiresAt: meta.expiresAt,
-      isPermanent: meta.isPermanent
+      id: file.id,
+      filename: file.originalName,
+      size: file.size,
+      mimeType: file.mimeType,
+      url: getFileUrl(file.storedKey, file.storageType),
+      expiresAt: file.expiresAt,
+      isPermanent: file.isPermanent,
+      downloadCount: file.downloadCount,
+      createdAt: file.createdAt,
     });
   } catch (e) {
     res.status(500).json({ error: '获取文件信息失败' });
+  }
+});
+
+app.get('/api/files/:id/download', async (req, res) => {
+  try {
+    const file = await dbGetFileById(req.params.id);
+    if (!file) return res.status(404).json({ error: '文件不存在或已过期' });
+    if (file.expiresAt && file.expiresAt < Date.now() && !file.isPermanent) {
+      return res.status(410).json({ error: '文件已过期' });
+    }
+
+    await incrementFileDownload(file.id);
+
+    const stream = await getFileStream(file.storedKey, file.storageType);
+    if (!stream) return res.status(404).json({ error: '文件不存在' });
+
+    res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.originalName)}"`);
+    if (stream.contentLength) res.setHeader('Content-Length', stream.contentLength);
+    stream.stream.pipe(res);
+  } catch (e) {
+    console.error('Download error:', e);
+    res.status(500).json({ error: '下载失败' });
+  }
+});
+
+app.get('/api/files/serve/:key', async (req, res) => {
+  try {
+    const key = req.params.key;
+    const result = await getFileStream(key, 's3');
+    if (!result) return res.status(404).send('Not found');
+    if (result.contentType) res.setHeader('Content-Type', result.contentType);
+    result.stream.pipe(res);
+  } catch (e) {
+    res.status(404).send('Not found');
+  }
+});
+
+// ========== URL PREVIEW ==========
+app.get('/api/url-preview', async (req, res) => {
+  try {
+    const url = req.query.url;
+    if (!url) return res.status(400).json({ error: '缺少URL参数' });
+
+    const cached = await dbGetUrlPreview(url);
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    if (cached && cached.fetchedAt && cached.fetchedAt > oneHourAgo && cached.title) {
+      return res.json(cached);
+    }
+
+    const preview = await fetchUrlPreview(url);
+    await dbSaveUrlPreview(preview);
+    res.json(preview);
+  } catch (e) {
+    console.error('URL preview error:', e);
+    res.json({ url: req.query.url, title: req.query.url, description: '', favicon: null, siteName: '', fetchedAt: Date.now() });
+  }
+});
+
+// ========== REPORT ==========
+app.post('/api/reports', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ error: '未登录' });
+    const { targetType, targetId, reason } = req.body;
+    if (!targetType || !targetId) return res.status(400).json({ error: '参数不完整' });
+    await dbSaveReport({
+      id: genId('report'),
+      reporterId: userId,
+      targetType, targetId,
+      reason: reason || '',
+      createdAt: Date.now(),
+    });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: '举报失败' });
   }
 });
 
@@ -2029,7 +2257,7 @@ app.post('/api/admin/reward/:userId', async (req, res) => {
     if (!target) return res.status(404).json({ error: '用户不存在' });
     const parts = [];
     if (coins && coins > 0) {
-      target.wenshuCoin = (target.wenshuCoin || 0) + coins;
+      target.wenshuCoin = Number(target.wenshuCoin || 0) + coins;
       parts.push(`${coins}文书币`);
     }
     if (vipDays && vipDays > 0) {
@@ -2411,9 +2639,13 @@ app.use((req, res) => {
 });
 
 async function startServer() {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 文书APP后端服务运行在 port ${PORT}`);
+  });
+
   await initDB();
+  await initStorage();
   await seedInitialData();
-  cleanupExpiredFiles();
   const users = await getUsers();
   const posts = await getPosts();
   let assistantUser = users.find(u => u.username === '文书小助手');
@@ -2563,16 +2795,10 @@ async function startServer() {
     res.json(book);
   });
 
-  app.post('/api/books/upload', auth, fileUpload.single('file'), async (req, res) => {
+  app.post('/api/books/upload', auth, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: '请选择文件' });
-    if (isR2Enabled()) {
-      try {
-        await storageSaveFile(req.file.filename, req.file.path, req.file.mimetype || 'application/octet-stream');
-      } catch(r2e) {
-        return res.status(500).json({ error: '上传失败，云端存储异常' });
-      }
-    }
-    res.json({ url: getPublicUrl(req.file.filename), filename: req.file.originalname });
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({ url: fileUrl, filename: req.file.originalname });
   });
 
   app.post('/api/books/:id/read', authOptional, async (req, res) => {
@@ -2736,9 +2962,37 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 文书APP后端服务运行在 port ${PORT}`);
+  app.use((err, req, res, next) => {
+    if (err) {
+      console.error('Server error:', err);
+      if (err.name === 'MulterError') {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: '文件大小超出限制' });
+        }
+        return res.status(400).json({ error: '文件上传错误: ' + err.message });
+      }
+      return res.status(500).json({ error: err.message || '服务器内部错误' });
+    }
+    next();
   });
+
+  isServerReady = true;
+  console.log('✅ 服务器初始化完成，准备接收请求');
+
+  setInterval(async () => {
+    try {
+      const expired = await getExpiredFiles();
+      for (const f of expired) {
+        await deleteStorageFile(f.storedKey, f.storageType);
+        await dbDeleteFile(f.id);
+      }
+      if (expired.length > 0) {
+        console.log(`🧹 Cleaned up ${expired.length} expired files`);
+      }
+    } catch (e) {
+      console.warn('File cleanup error:', e.message);
+    }
+  }, 60 * 60 * 1000);
 }
 
 startServer().catch(e => {
